@@ -28,14 +28,13 @@
 
 (def track
   (for [_ (range 100)]
-   [[nil nil nil nil] [nil nil nil nil]]))
+   [[:A nil nil nil] [:C 4 nil nil]]))
 
 (def event-chan (r/atom (k/init-keydown-chan!)))
 
 (defn on-js-reload []
   (r/render-component
     [:div.container
-     [ui/controls]
      [ui/tracker ui/schema track]
      ;[ui/ex-player-2 app-state track]
      ]

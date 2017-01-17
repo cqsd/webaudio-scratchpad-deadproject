@@ -49,6 +49,7 @@
   "Repeatedly consume slices (at a set interval) until the sequence of slices
   is empty."
   [chip track interval] ;; TODO XXX FIXME start here next time
+  ;; TODO need to clear all the chip attributes before playback
   (let [slices (u/delayed-coll-chan track interval)
         ch (chan)]
     (go-loop []

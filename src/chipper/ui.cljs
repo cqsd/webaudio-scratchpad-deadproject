@@ -13,28 +13,6 @@
             [reagent.core :as r])
   (:require-macros [cljs.core.async.macros :refer [go-loop]]))
 
-(def ex-player-2-text (atom []))
-(def schema [:square :triangle])
-
-(defn ex-player-2 [app-state track]
-  [:div
-   [:button
-    {:on-click
-     (fn []
-       (let [chip   (c/create-chip! schema
-                                    (:context @app-state))
-             ch     (c/play-track chip track 1000)]
-         (go-loop []
-                  (when-let [note (<! ch)]
-                    (swap! ex-player-2-text conj note)
-                    (recur)))))}
-    "test"]
-
-   [:div
-    (for [line @ex-player-2-text]
-      ^{:key line}
-      [:p {:style {:font-family "monospace"}} line])]])
-
 (defn row
   ([slice line-number] (row slice line-number nil))
   ([slice line-number selected?]
@@ -92,19 +70,3 @@
        ^{:key line-number} ;; uh... what
        [row slice line-number])]]
    [add-channel-control]])
-
-(defn svg-shit []
-  [:svg {:width 300 :height 200}
-   [:rect {:width "100%"
-           :height "100%"
-           :fill :red}]
-   [:circle {:cx 150
-             :cy 100
-             :r 80
-             :fill :green}]
-   [:text {:x 150
-           :y 115
-           :font-size 60
-           :text-anchor :middle
-           :fill :white}
-    "cuck"]])

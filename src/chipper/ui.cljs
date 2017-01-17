@@ -1,3 +1,5 @@
+;; TODO let react handle the active element?
+;; It's a hack no matter what I do, so...
 (ns chipper.ui
   (:require [chipper.audio :as a]
             [chipper.chips :as c]
@@ -12,7 +14,7 @@
   (:require-macros [cljs.core.async.macros :refer [go-loop]]))
 
 (def ex-player-2-text (atom []))
-(def schema [:sine :triangle])
+(def schema [:square :triangle])
 
 (defn ex-player-2 [app-state track]
   [:div
@@ -34,41 +36,62 @@
       [:p {:style {:font-family "monospace"}} line])]])
 
 (defn row
-  "This is much easier SVG, not to mention easier to style and more consistent
-  across browsers."
-  [slice line-number]
-  [:pre.slice
-   ;; don't even fucking ask what happened here
-   [:span.pipe-sep (as-> line-number s
-                         (.toString s 16)
-                         (gs/format "%2s" s)
-                         (.toUpperCase s)
-                         (.replace s " " "0")
-                         (str " " s))]
-   (for [[note octave gain effect :as attrs] slice]
-     (let [note-off? (or (= :off note) (not note))
-           note-name (if note-off? "-" (name note))
-           octave    (if note-off? "-" octave)]
-       ^{:key (gensym)} ;; XXX is this crazy
-       [:span.pipe-sep
-        [:span (str " " note-name "-" octave " ")]
-        [:span (or gain " - ")]
-        [:span (or effect " - ")]]))])
+  ([slice line-number] (row slice line-number nil))
+  ([slice line-number selected?]
+   [:pre.slice
+
+    ;; -------- literally just a line number --------
+    ;; don't even fucking ask what happened here
+    (let [shoved-into-the-ring (mod line-number 16)]
+      [:span
+       {:class (if (some #{shoved-into-the-ring} [0 4 8 12])
+                 "pipe-sep bright-text"
+                 :pipe-sep)}
+       (as-> shoved-into-the-ring s
+         (.toString s 16)
+         (gs/format "%2s" s)
+         (.toUpperCase s)
+         (.replace s " " "0")
+         (str " " s))])
+    ;; ----------------------------------------------
+
+    (for [[note octave gain effect :as attrs] slice]
+      (let [note-off? (= :off note)
+            note-name (if (or (nil? note) note-off?) "-" (name note))
+            octave    (if (or (nil? octave) note-off?) "-" octave)]
+        ^{:key (gensym)} ;; lol
+        [:span.pipe-sep
+         {:class (if selected? "pipe-sep selected" :pipe-sep)}
+         [:span (str " " note-name "-" octave " ")]
+         [:span (or gain " - ")]
+         [:span (or effect " - ")]]))]))
+
+(defn add-channel-control []
+  [:div#hideyhack
+   [:div#add-channel.controls
+    [:span.button "+"]]])
+
+(defn main-controls []
+  [:div#hideyhack
+   [:div#main-controls.controls
+    [:span.button "▶"]
+    [:span.button "✎"]
+    (comment [:span.button "༗"])]])
 
 (defn tracker [schema slices]
-  [:div#track
-   [:pre#schema
-    (apply str
-           "    "
-           (for [instrument schema]
-             (gs/format " %-11s" (name instrument))))]
-   [:div#slices
-    (for [[slice line-number] (map vector slices (range))]
-      ^{:key line-number} ;; uh... what
-      [row slice line-number])]])
-
-(defn controls []
-  [:div#controls "asdf"])
+  [:div#tracker
+   [main-controls]
+   [:div#track
+    [:pre#schema
+     (apply str
+            "    "
+            (for [instrument schema]
+              (gs/format " %-11s" (name instrument))))]
+    [:div#slices
+     (for [[slice line-number] (map vector slices (range))]
+       ^{:key line-number} ;; uh... what
+       [row slice line-number])]]
+   [add-channel-control]])
 
 (defn svg-shit []
   [:svg {:width 300 :height 200}

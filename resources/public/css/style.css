@@ -1,0 +1,123 @@
+html, body {
+    background: #4f688e;
+    color: #e0ecff;
+}
+
+.container {
+    display: -webkit-flex;
+    display: flex;
+    width: 100%;
+    overflow: hidden;
+}
+
+.slice {
+    margin: 0;
+    color: #e0ecff;
+}
+
+.slice:last-child { margin-bottom: 0.3em; }
+
+.slice:hover {
+    background: #e0ecff;
+    color: black;
+}
+
+.slice span.pipe-sep:after {
+    color: #e0ecff; /* XXX this is a hack */
+    content: "|";
+}
+
+.slice span.pipe-sep:last-child:after {
+    content: "";
+}
+
+/* ---------- TRACKER ---------- */
+#tracker {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-flex-direction: row;
+    -moz-box-flex-direction: row;
+    -webkit-flex-direction: row;
+    flex-direction: row;
+
+    font-family: monospace;
+
+    width: auto;
+    max-width: 75%;
+    margin: auto;
+}
+
+#track {
+    cursor: default;
+    border: 1px solid #e0ecff;
+    margin: 0 auto;
+}
+
+#schema {
+    border-bottom: 1px solid #e0ecff;
+    margin-bottom: 0.5em;
+    margin-top:    0.52em;
+    padding-bottom:0.5em;
+}
+
+#slices {
+    max-height: 70vh;
+    overflow: scroll;
+}
+
+/* ---------- CONTROLS ---------- */
+.controls {
+    height:-moz-fit-content;
+    height:-webkit-fit-content;
+    height:fit-content;
+
+    border: 1px solid #e0ecff;
+
+    background: #4f688e;
+    color: #e0ecff;
+
+    /*width: 0.5ch;*/
+    width: auto;
+    overflow: hidden;
+}
+
+.controls:hover {
+    width: auto;
+}
+
+.button {
+    cursor: default;
+
+    font-family: monospace;
+    font-weight: bold;
+
+    height: 1em;
+    width: 2ch;
+    display: block;
+    margin: 1px;
+
+    padding: .5em;
+    padding-right: 0;
+}
+
+#main-controls {
+    border-radius: 5px 0 0 5px;
+    border-right: none;
+}
+
+#add-channel {
+    border-radius: 0 5px 5px 0;
+    border-left: none;
+}
+
+
+/* ---------- MISCELLANEOUS ---------- */
+
+.bright-text {
+    color: #f4bf42;
+}
+
+.selected {
+    color: black;
+    background: #e0ecff;
+}

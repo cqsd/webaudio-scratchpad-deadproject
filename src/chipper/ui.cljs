@@ -1,61 +1,80 @@
-;; TODO let react handle the active element?
-;; It's a hack no matter what I do, so...
 (ns chipper.ui
-  (:require [chipper.audio :as a]
-            [chipper.chips :as c]
-            [chipper.keyboard :as k]
-            [chipper.notes :as n]
-            [chipper.utils :as u]
-            [cljs.core.async :refer [<! >! take!]]
-            [goog.events :as events]
-            [goog.string :as gs]
+  (:require [goog.string :as gs]
             [goog.string.format] ;; this is needed because... closure fuckery
-            [reagent.core :as r])
-  (:require-macros [cljs.core.async.macros :refer [go-loop]]))
+            [reagent.core :as r]))
 
-(defn row
-  ([slice line-number] (row slice line-number nil))
-  ([slice line-number selected?]
-   [:pre.slice
+;; TODO this needs to not be in this namespace
+(def context (r/atom {:active-line  0
+                      :active-chan  0
+                      :active-attr  0}))
 
-    ;; -------- literally just a line number --------
-    ;; don't even fucking ask what happened here
-    (let [shoved-into-the-ring (mod line-number 16)]
-      [:span
-       {:class (if (some #{shoved-into-the-ring} [0 4 8 12])
-                 "pipe-sep bright-text"
-                 :pipe-sep)}
-       (as-> shoved-into-the-ring s
-         (.toString s 16)
-         (gs/format "%2s" s)
-         (.toUpperCase s)
-         (.replace s " " "0")
-         (str " " s))])
-    ;; ----------------------------------------------
+(defn channel [[note octave gain effect] chan-id chan-active?]
+  (let [note-off?    (or (= :off note) (nil? note))
+        note         (if note-off? "-" (name note)) ;(.replace (name note) "+" "#"))
+        octave       (if (or note-off? (not octave)) "-" octave)
+        attr-strs    [(str " " note (when (= 1 (count note)) "-") octave " ")
+                      (or gain " - ")
+                      (or effect " - ")]
+        active-attr  (if chan-active? (:active-attr @context) -1)]
+    [:span.pipe-sep
+     (for [[s attr-num] (map vector attr-strs (range))
+           :let [attr-id (str chan-id "-" attr-num)
+                 attr-active? (and chan-active?
+                                   (= attr-num active-attr))]]
+       ^{:key attr-id}
+       [:span {:id attr-id :class (if attr-active? :active-attr :attr)} s])]))
 
-    (for [[note octave gain effect :as attrs] slice]
-      (let [note-off? (= :off note)
-            note-name (if (or (nil? note) note-off?) "-" (name note))
-            octave    (if (or (nil? octave) note-off?) "-" octave)]
-        ^{:key (gensym)} ;; lol
-        [:span.pipe-sep
-         {:class (if selected? "pipe-sep selected" :pipe-sep)}
-         [:span (str " " note-name "-" octave " ")]
-         [:span (or gain " - ")]
-         [:span (or effect " - ")]]))]))
+(defn line [slice line-id line-number line-active?]
+    [:pre {:id line-id
+           :class (if line-active? "slice active-line" :slice)}
+     ;; -------- literally just a line number --------
+     ;; don't even fucking ask what happened here
+     (let [num-in-z16 (mod line-number 16)]
+       [:span
+        {:class (if (zero? (mod num-in-z16 4)) "pipe-sep bright-text" :pipe-sep)}
+        (as-> num-in-z16 s
+          (.toString s 16)
+          (gs/format "%2s" s)
+          (.toUpperCase s)
+          (.replace s " " "0")
+          (str " " s))])
+     ;; ----------------------------------------------
+     (let [active-chan (if line-active?
+                         (:active-chan @context)
+                         -1)]
+       (for [[attrs chan-number] (map vector slice (range))
+             :let [chan-active? (and line-active?
+                                     (= chan-number active-chan))
+                   chan-id (str line-number "-" chan-number)]]
+         ^{:key chan-id} ;; lol
+         [channel attrs chan-id chan-active?]))])
 
+;; TODO make some SVG buttons or figure out how to be REALLY consistent
+;; about the spacing, sizing, positioning of unicode buttons...
 (defn add-channel-control []
-  [:div#hideyhack
-   [:div#add-channel.controls
-    [:span.button "+"]]])
+  [:div#add-channel.controls
+   [:span.button "+"]])
+
+;; TEST
+(.addEventListener
+  js/window
+  "mousedown"
+  (fn [ev]
+    (let [id (.-id (.-target ev))
+          [line chan attr] (map js/parseInt (.split id "-"))]
+      (swap! context assoc
+             :active-line  line
+             :active-chan  chan
+             :active-attr  attr)
+      (prn [line chan attr]))))
 
 (defn main-controls []
-  [:div#hideyhack
-   [:div#main-controls.controls
-    [:span.button "▶"]
-    [:span.button "✎"]
-    (comment [:span.button "༗"])]])
+  [:div#main-controls.controls
+   [:span.button "▶"]
+   [:span.button "✎"]
+   (comment [:span.button "༗"])])
 
+;; main ui
 (defn tracker [schema slices]
   [:div#tracker
    [main-controls]
@@ -66,7 +85,11 @@
             (for [instrument schema]
               (gs/format " %-11s" (name instrument))))]
     [:div#slices
-     (for [[slice line-number] (map vector slices (range))]
-       ^{:key line-number} ;; uh... what
-       [row slice line-number])]]
-   [add-channel-control]])
+     (let [active-line (:active-line @context)]
+       (for [[slice line-number] (map vector slices (range))
+             :let [line-id (str "line-" line-number)]]
+         ^{:key line-id}
+         [line slice
+               line-id
+               line-number
+               (= line-number active-line)]))]]])

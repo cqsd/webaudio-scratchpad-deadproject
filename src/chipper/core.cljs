@@ -9,12 +9,17 @@
 (enable-console-print!)
 
 (def track
-  (for [_ (range 100)]
-   [[:A nil nil nil] [:C 4 nil nil]]))
+  (for [_ (range 1400)]
+   [[:A nil nil nil] [:C# 4 nil nil] [:E 4 nil nil] [:G 5 nil nil]]))
 
-(def schema [:square :triangle])
+(def schema [:square :square :triangle :sawtooth])
 
 (defn on-js-reload []
+  (.addEventListener
+    js/window
+    "keydown"
+    (fn [ev]
+      (prn (.-code ev))))
   (r/render-component
     [:div.container
      [ui/tracker schema track]]

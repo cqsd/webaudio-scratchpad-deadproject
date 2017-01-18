@@ -1,6 +1,25 @@
+/* TODO schema and button should have same height */
 html, body {
     background: #4f688e;
     color: #e0ecff;
+    font-size: 12pt;
+    font-family: 'Inconsolata', monospace;
+}
+
+pre {
+    font-family: 'Inconsolata', monospace;
+}
+
+#header {
+    font-size: 16pt;
+    text-align: center;
+    margin: 0.25em;
+}
+
+#subheader {
+    display: table;
+    margin: 0 auto;
+    margin-bottom: 0.5em;
 }
 
 .container {
@@ -8,22 +27,39 @@ html, body {
     display: flex;
     width: 100%;
     overflow: hidden;
+    -webkit-touch-callout: none;
+    -webkit-user-select:   none;
+    -khtml-user-select:    none;
+    -moz-user-select:      none;
+    -ms-user-select:       none;
+    user-select:           none;
 }
 
-.slice {
-    margin: 0;
-    color: #e0ecff;
-}
-
-.slice:last-child { margin-bottom: 0.3em; }
-
-.slice:hover {
+.active-line {
     background: #e0ecff;
     color: black;
 }
 
+.active-attr {
+    background: pink; /*#6d9be0;*/
+}
+
+.slice {
+    margin: 0;
+}
+
+.slice:hover {
+    background: #6d9be0;
+}
+
+.slice:last-child { margin-bottom: 0.3em; }
+
+.attr:hover {
+    color: black;
+    background: white;
+}
+
 .slice span.pipe-sep:after {
-    color: #e0ecff; /* XXX this is a hack */
     content: "|";
 }
 
@@ -51,17 +87,20 @@ html, body {
     cursor: default;
     border: 1px solid #e0ecff;
     margin: 0 auto;
+
+    border-radius: 0 5px 0 0;
 }
 
 #schema {
     border-bottom: 1px solid #e0ecff;
-    margin-bottom: 0.5em;
     margin-top:    0.52em;
+    margin-bottom: 0;
     padding-bottom:0.5em;
 }
 
 #slices {
-    max-height: 70vh;
+    padding-top: 0.45em;
+    max-height: 80vh;
     overflow: scroll;
 }
 
@@ -75,14 +114,6 @@ html, body {
 
     background: #4f688e;
     color: #e0ecff;
-
-    /*width: 0.5ch;*/
-    width: auto;
-    overflow: hidden;
-}
-
-.controls:hover {
-    width: auto;
 }
 
 .button {
@@ -98,6 +129,14 @@ html, body {
 
     padding: .5em;
     padding-right: 0;
+}
+
+.button:hover {
+    color: #f4bf42;
+}
+
+.button:active {
+    color: #6d9be0;
 }
 
 #main-controls {

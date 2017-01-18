@@ -6,6 +6,10 @@
             [goog.events :as events])
   (:require-macros [cljs.core.async.macros :refer [go-loop]]))
 
+; ---------------------------------------------------------------------
+; MAPPINGS ------------------------------------------------------------
+; ---------------------------------------------------------------------
+
 (def note-mapping
   (merge                   ; idk how to process shift using keycodes so
     {:KeyA :C   :KeyW :C#  ; :KeyA :C+
@@ -32,17 +36,27 @@
            {(keyword (str "Digit" n)) n})))
 
 (def movement-mappings
-  ;; XXX should these directives be e.g. [:down :line] instead?
-  ;; XXX XXX XXX this one is probably the most unnecessary for a hard mapping
-  ;; probably what really needs to happen is hard map these *in the handler*
-  ;; and take their values from the *dynamic config in the app*
-  {:KeyJ :down-line      :ArrowDown :down-line
-   :KeyK :up-line        :ArrowUp   :up-line
-   :KeyH :left-column    :ArrowLeft :left-column
-   :KeyL :right-column   :ArrowRight :right-column
+  ;; TODO jump keys (g, 0, etc)
+  {:event  ;; event mappings take event data -> internal rep
+   {:KeyJ :down-line      :ArrowDown  :down-line
+    :KeyK :up-line        :ArrowUp    :up-line
+    :KeyH :left-attr    :ArrowLeft  :left-attr
+    :KeyL :right-attr   :ArrowRight :right-attr
 
-   :BracketRight :down-measure
-   :BracketLeft  :up-measure})
+    :Tab      :right-chan   :KeyW :right-chan
+    :ShiftTab :left-chan    :KeyB :left-chan
+
+    ;; TODO
+    ; :Equal :?
+    ; :Minus :?
+    :BracketRight :down-measure
+    :BracketLeft  :up-measure}
+
+   :internal  ;; internal mappings take internal -> whatever is needed for use?
+   {:down-line    [1 nil 0] :up-line    [-1 nil 0]
+    :right-attr   [0 nil 1] :left-attr  [0 nil -1]
+    :right-chan   [0 1 0]   :left-chan  [0 -1 0]
+    :down-measure [4 nil 0] :up-measure [-4 nil 0]}})
 
 (def insert-mode-mappings
   {:notes note-mapping
@@ -53,15 +67,43 @@
 (def normal-mode-mappings
   {:default movement-mappings})
 
-(defn init-keydown-chan! []
-  ;; current approach: all events go onto one channel, dispatcher takes off
-  ;; and decides what to do with them
-  ;; question: is there really a need for the channel at all if there's only
-  ;; one dispatcher?
+; ---------------------------------------------------------------------
+; HANDLERS ------------------------------------------------------------
+; ---------------------------------------------------------------------
+
+;; XXX keycode needs to be a keyword...
+(defn movement-handler [internal-code context]
+  ;; abusing the let macro...
+  (let [state         @context ;; I foresee a race condition
+        active-line   (:active-line state)  ;; there's gotta be a better way
+        active-chan   (:active-chan state)  ;; to make these selections
+        active-attr   (:active-attr state)
+        [dline
+         dchan
+         dattr]       (get (:internal movement-mappings) internal-code [0 0 0])
+        ;; since dattr is signed, dchan can just take its value when crossing over
+        dchan         (or dchan
+                          (if-not (some #{(+ active-attr dattr)} (range 0 3))
+                            dattr 0))
+        next-line     (mod (+ active-line dline) (count (:slices state)))
+        next-chan     (mod (+ active-chan dchan) (count (:schema state)))
+        next-attr     (mod (+ active-attr dattr) 3)]
+    (prn [internal-code dline])
+    (swap! context assoc
+           :active-line next-line
+           :active-chan next-chan
+           :active-attr next-attr)))
+
+; (prn {:active-attr (:active-attr @context)
+;           :active-chan (:active-chan @context)
+;           :active-line (:active-line @context)})
+
+;; TODO this needs to go somewhere else (should the chan also handle mousdown?)
+(defn init-keycode-chan! []
   (let [ch (chan)]
-    (.addEventListener
+    (.addEventListener ;; XXX is this really the best we can do
       js/window
       "keydown"
       (fn [ev]
-        (put! ch (.-code ev)))) ;; key code is agnostic of kb layout
+        (put! ch (keyword (.-code ev))))) ;; key code is agnostic of kb layout
     ch))

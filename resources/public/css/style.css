@@ -16,10 +16,9 @@ pre {
     margin: 0.25em;
 }
 
-#subheader {
-    display: table;
-    margin: 0 auto;
-    margin-bottom: 0.5em;
+#app {
+    margin-top: 2em;
+    text-align: center;
 }
 
 .container {

@@ -20,7 +20,9 @@
   (.-destination context))
 
 (defn chain-nodes! [node & nodes]
-  "Connect nodes in order node1 node2...nodeN => node1->node2->...->nodeN"
+  "Connect nodes in order node1 node2...nodeN => node1->node2->...->nodeN
+
+  Returns the original node."
   (loop [current node remaining nodes]
     (when (seq remaining)
       (.connect current (first remaining))
@@ -28,11 +30,7 @@
   node)
 
 (defn create-osc
-  ([context osc-type]
-   (let [osc (.createOscillator context)]
-     (set! (.-type osc) (name osc-type))
-     (aset osc "running?" false) ;; XXX delete when out of dev mode
-     osc))
+  ([context osc-type] (create-osc context osc-type :A 4))
   ;; TODO this second arity is probably not necessary
   ([context osc-type & freq-args]
    (let [osc (create-osc context osc-type)
@@ -55,14 +53,11 @@
   oscillator and the speaker destination."
   (let [osc (create-osc context osc-type)
         gain (create-gain context 0.1)] ;; XXX uh...
-    (.start osc) ;; XXX should create-osc just start the osc before returning
-    ;; XXX This maybe shouldn't be a plain js object
-    #js {:source  osc
-         :gain    gain
-         :output  (destination context)
-         :context context
-         ; :running false ;; unused
-         }))
+    (.start osc) ;; XXX should create-osc just start the osc before returning?
+    {:source  osc
+     :gain    gain
+     :output  (destination context)
+     :context context}))
 
 (defn create-osc-channels! [context osc-types]
   ;; TODO change to doseq or something when sober
@@ -70,21 +65,21 @@
 
 (defn chan-on! [channel]
   "Connect the channel source to its output."
-  (chain-nodes! (.-source channel)
-                (.-gain channel)
-                (.-output channel))
+  (chain-nodes! (:source channel)
+                (:gain channel)
+                (:output channel))
   channel)
 
 (defn chan-off! [channel]
   "Disconnect the channel source from its output."
-  (.disconnect (.-source channel))
+  (.disconnect (:source channel))
   channel)
 
 (defn set-note! [channel & freq-args]
   (let [frequency (apply n/frequency freq-args)
-        source (.-source channel)]
+        source (:source channel)]
     ;; bug in chrome; can't just set directly (causes gliss effect)
     (.setValueAtTime (.-frequency source)
                      frequency
-                     (.-currentTime (.-context channel)))
+                     (.-currentTime (:context channel)))
   channel))

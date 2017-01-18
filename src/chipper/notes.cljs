@@ -3,16 +3,16 @@
 (def ;; Half-steps above middle C. This is easier than, e.g., indexing.
   note-steps
   {:C  0
-   :C+ 1  :Db 1 ;; it's just easier to do this sort of thing than it is to
+   :C# 1  :Db 1 ;; it's just easier to do this sort of thing than it is to
    :D  2        ;; use, e.g., a translation table for accidentals
-   :D+ 3  :Eb 3
+   :D# 3  :Eb 3
    :E  4
    :F  5
-   :F+ 6  :Gb 6
+   :F# 6  :Gb 6
    :G  7
-   :G+ 8
+   :G# 8
    :A  9
-   :A+ 10 :Bb 10
+   :A# 10 :Bb 10
    :B  11 :Ab 11})
 
 (def twelfth-root-of-2 1.059) ;; only realistically need this much precision
@@ -30,7 +30,7 @@
    - frequency (Hz)
 
   Params:
-   - note - name of note; + for sharp, b for flat
+   - note - name of note; # for sharp, b for flat
    - octave - octave number (default 4)
    - base - base frequency of A4 (default 440)
 

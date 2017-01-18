@@ -1,17 +1,9 @@
 (ns chipper.core
-  (:require [chipper.audio :as a]
-            [chipper.keyboard :as k]
+  (:require [chipper.keyboard :as k]
             [chipper.ui :as ui]
-            [cljs.core.async :refer [<! >! take!]]
-            [reagent.core :as r])
-  (:require-macros [cljs.core.async.macros :refer [go-loop]]))
+            [reagent.core :as r]))
 
 (enable-console-print!)
-
-; (r/render-component
-;     [:div.container
-;      [ui/tracker schema track]]
-;     (.getElementById js/document "app"))
 
 (def context
   (r/atom
@@ -40,17 +32,17 @@
           (k/movement-handler internal-code context)
           (prn keycode))))
 
-    ;; TEST
     (.addEventListener
       js/window
       "mousedown"
       (fn [ev]
         (let [id (.-id (.-target ev))
               [line chan attr] (map js/parseInt (.split id "-"))]
-          (swap! context assoc
-                 :active-line  line
-                 :active-chan  chan
-                 :active-attr  attr)
+          (when (every? #(number? %) [line chan attr])
+            (swap! context assoc
+                   :active-line  line
+                   :active-chan  chan
+                   :active-attr  attr))
           (prn [line chan attr]))))
     (swap! asdf assoc :listeners-initialized? true))
 

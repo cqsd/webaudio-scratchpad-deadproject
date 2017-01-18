@@ -1,11 +1,22 @@
 (ns chipper.ui
   (:require [goog.string :as gs]
-            [goog.string.format] ;; this is needed because... closure fuckery
+            [goog.string.format]
             [reagent.core :as r]))
 
-(defn channel [[note octave gain effect] chan-id chan-active? context]
+(defn add-channel-control []
+  [:div#add-channel.controls
+   [:span.button "+"]])
+
+(defn main-controls []
+  [:div#main-controls.controls
+   [:span.button "▶"]
+   [:span.button "✎"]])
+
+(defn channel
+  "One line of attributes for a single channel."
+  [[note octave gain effect] chan-id chan-active? context]
   (let [note-off?    (or (= :off note) (nil? note))
-        note         (if note-off? "-" (name note)) ;(.replace (name note) "+" "#"))
+        note         (if note-off? "-" (name note))
         octave       (if (or note-off? (not octave)) "-" octave)
         attr-strs    [(str " " note (when (= 1 (count note)) "-") octave " ")
                       (or gain " - ")
@@ -19,51 +30,42 @@
        ^{:key attr-id}
        [:span {:id attr-id :class (if attr-active? :active-attr :attr)} s])]))
 
-(defn line [slice line-id line-number line-active? context]
-    [:pre {:id line-id
-           :class (if line-active? "slice active-line" :slice)}
-     ;; -------- literally just a line number --------
-     ;; don't even fucking ask what happened here
-     (let [num-in-z256 (mod line-number 256)]
-       [:span
-        {:class (if (zero? (mod num-in-z256 4)) "pipe-sep bright-text" :pipe-sep)}
-        (as-> num-in-z256 s
-          (.toString s 16)
-          (gs/format "%2s" s)
-          (.toUpperCase s)
-          (.replace s " " "0")
-          (str " " s))])
-     ;; ----------------------------------------------
-     (let [active-chan (if line-active?
-                         (:active-chan @context)
-                         -1)]
-       (for [[attrs chan-number] (map vector slice (range))
-             :let [chan-active? (and line-active?
-                                     (= chan-number active-chan))
-                   chan-id (str line-number "-" chan-number)]]
-         ^{:key chan-id} ;; lol
-         [channel attrs chan-id chan-active? context]))])
+(defn line-hex-number [line-number]
+  (let [num-mod (mod line-number 4096)]
+    [:span
+     {:class (if (zero? (mod num-mod 4)) "pipe-sep bright-text" :pipe-sep)}
+     (as-> num-mod s
+       (.toString s 16)
+       (gs/format "%3s" s)
+       (.toUpperCase s)
+       (.join (.split s " ") "0")
+       (str " " s))]))
 
-;; TODO make some SVG buttons or figure out how to be REALLY consistent
-;; about the spacing, sizing, positioning of unicode buttons...
-(defn add-channel-control []
-  [:div#add-channel.controls
-   [:span.button "+"]])
+(defn line
+  "One line of channels"
+  [slice line-id line-number line-active? context]
+  [:pre {:id line-id
+         :class (if line-active? "slice active-line" :slice)}
+   [line-hex-number line-number]
+   (let [active-chan (if line-active?
+                       (:active-chan @context)
+                       -1)]
+     (for [[attrs chan-number] (map vector slice (range))
+           :let [chan-active? (and line-active?
+                                   (= chan-number active-chan))
+                 chan-id (str line-number "-" chan-number)]]
+       ^{:key chan-id}
+       [channel attrs chan-id chan-active? context]))])
 
-(defn main-controls []
-  [:div#main-controls.controls
-   [:span.button "▶"]
-   [:span.button "✎"]
-   (comment [:span.button "༗"])])
-
-;; main ui
-(defn tracker [schema slices context]
+(defn tracker
+  "Main UI. Combines schema, track, controls, modeline, etc."
+  [schema slices context]
   [:div#tracker
    [main-controls]
    [:div#track
     [:pre#schema
      (apply str
-            "    "
+            "     "  ;; length-5 padding
             (for [instrument schema]
               (gs/format " %-11s" (name instrument))))]
     [:div#slices
@@ -75,4 +77,5 @@
                line-id
                line-number
                (= line-number active-line)
-               context]))]]])
+               context]))]]
+   [add-channel-control]])

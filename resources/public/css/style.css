@@ -14,10 +14,14 @@ pre {
     font-size: 16pt;
     text-align: center;
     margin: 0.25em;
+    margin-top: 1em;
 }
 
 #app {
-    margin-top: 2em;
+    margin-top: 1em;
+}
+
+#loading-text {
     text-align: center;
 }
 
@@ -87,7 +91,7 @@ pre {
     border: 1px solid #e0ecff;
     margin: 0 auto;
 
-    border-radius: 0 5px 0 0;
+    /* border-radius: 0 5px 0 0; */
 }
 
 #schema {
@@ -99,8 +103,16 @@ pre {
 
 #slices {
     padding-top: 0.45em;
-    max-height: 80vh;
+    max-height: 60vh;
     overflow: scroll;
+}
+
+#modeline-left {
+    text-align: left;
+}
+
+#modeline-right {
+    text-align: right;
 }
 
 /* ---------- CONTROLS ---------- */

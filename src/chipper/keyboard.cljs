@@ -8,12 +8,12 @@
 
 (def note-mapping
   (merge                   ; idk how to process shift using keycodes so
-    {:KeyA :C   :KeyW :C+  ; :KeyA :C+
-     :KeyE :D   :KeyR :D+  ; :KeyE :D+
+    {:KeyA :C   :KeyW :C#  ; :KeyA :C+
+     :KeyE :D   :KeyR :D#  ; :KeyE :D+
      :KeyD :E
-     :KeyF :F   :KeyT :F+  ; :KeyF :F+
-     :KeyG :G   :KeyY :G+  ; :KeyG :G+
-     :KeyH :A   :KeyI :A+  ; :KeyH :A+
+     :KeyF :F   :KeyT :F#  ; :KeyF :F+
+     :KeyG :G   :KeyY :G#  ; :KeyG :G+
+     :KeyH :A   :KeyI :A#  ; :KeyH :A+
      :KeyJ :B
 
      :BracketRight :upoctave  ; XXX this is very suspect

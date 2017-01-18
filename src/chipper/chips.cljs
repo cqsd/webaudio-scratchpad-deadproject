@@ -45,6 +45,9 @@
 ;; TODO XXX FIXME this can be refactored with delayed-coll-chan
 ;; in fact, a yank-put is basically all that's needed
 ;; slices are [note octave gain effect]
+;; TODO change this to use setValueAtTime (or whatever it is) instead of
+;; delay-based consumption because when browser is not focused, timeouts
+;; only fire 1x per second at max (applies to all major browsers i think)
 (defn play-track
   "Repeatedly consume slices (at a set interval) until the sequence of slices
   is empty."

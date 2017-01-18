@@ -3,12 +3,7 @@
             [goog.string.format] ;; this is needed because... closure fuckery
             [reagent.core :as r]))
 
-;; TODO this needs to not be in this namespace
-(def context (r/atom {:active-line  0
-                      :active-chan  0
-                      :active-attr  0}))
-
-(defn channel [[note octave gain effect] chan-id chan-active?]
+(defn channel [[note octave gain effect] chan-id chan-active? context]
   (let [note-off?    (or (= :off note) (nil? note))
         note         (if note-off? "-" (name note)) ;(.replace (name note) "+" "#"))
         octave       (if (or note-off? (not octave)) "-" octave)
@@ -24,15 +19,15 @@
        ^{:key attr-id}
        [:span {:id attr-id :class (if attr-active? :active-attr :attr)} s])]))
 
-(defn line [slice line-id line-number line-active?]
+(defn line [slice line-id line-number line-active? context]
     [:pre {:id line-id
            :class (if line-active? "slice active-line" :slice)}
      ;; -------- literally just a line number --------
      ;; don't even fucking ask what happened here
-     (let [num-in-z16 (mod line-number 16)]
+     (let [num-in-z256 (mod line-number 256)]
        [:span
-        {:class (if (zero? (mod num-in-z16 4)) "pipe-sep bright-text" :pipe-sep)}
-        (as-> num-in-z16 s
+        {:class (if (zero? (mod num-in-z256 4)) "pipe-sep bright-text" :pipe-sep)}
+        (as-> num-in-z256 s
           (.toString s 16)
           (gs/format "%2s" s)
           (.toUpperCase s)
@@ -47,26 +42,13 @@
                                      (= chan-number active-chan))
                    chan-id (str line-number "-" chan-number)]]
          ^{:key chan-id} ;; lol
-         [channel attrs chan-id chan-active?]))])
+         [channel attrs chan-id chan-active? context]))])
 
 ;; TODO make some SVG buttons or figure out how to be REALLY consistent
 ;; about the spacing, sizing, positioning of unicode buttons...
 (defn add-channel-control []
   [:div#add-channel.controls
    [:span.button "+"]])
-
-;; TEST
-(.addEventListener
-  js/window
-  "mousedown"
-  (fn [ev]
-    (let [id (.-id (.-target ev))
-          [line chan attr] (map js/parseInt (.split id "-"))]
-      (swap! context assoc
-             :active-line  line
-             :active-chan  chan
-             :active-attr  attr)
-      (prn [line chan attr]))))
 
 (defn main-controls []
   [:div#main-controls.controls
@@ -75,7 +57,7 @@
    (comment [:span.button "༗"])])
 
 ;; main ui
-(defn tracker [schema slices]
+(defn tracker [schema slices context]
   [:div#tracker
    [main-controls]
    [:div#track
@@ -92,4 +74,5 @@
          [line slice
                line-id
                line-number
-               (= line-number active-line)]))]]])
+               (= line-number active-line)
+               context]))]]])

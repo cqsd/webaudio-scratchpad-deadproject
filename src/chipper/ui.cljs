@@ -1,5 +1,6 @@
 (ns chipper.ui
-  (:require [goog.string :as gs]
+  (:require [chipper.chips :as c]
+            [goog.string :as gs]
             [goog.string.format]
             [reagent.core :as r]))
 
@@ -7,10 +8,10 @@
   [:div#add-channel.controls
    [:span.button "+"]])
 
-(defn main-controls []
+(defn main-controls [context]
   [:div#main-controls.controls
-   [:span.button "▶"]
-   [:span.button "✎"]])
+   [:span.button {:on-click #(c/play-track context)} "▶"]
+   [:span.button {:on-click #(prn (:slices @context))} "✎"]])
 
 (defn schema-line [schema]
   [:pre#schema
@@ -19,8 +20,13 @@
           (for [instrument schema]
             (gs/format " %-11s" (name instrument))))])
 
-(defn modeline [mode]
-  [:pre#modeline (str " " mode)])
+(defn modeline [& mode]
+  [:pre#modeline
+   [:span.pipe-sep
+    (for [[stat n] (map vector mode (range))
+          :let [id (str "modeline-" n)]]
+      ^{:key id}
+      [:span {:id id} (str stat)])]])
 
 (defn channel
   "One line of attributes for a single channel."
@@ -79,7 +85,7 @@
   "Main UI. Combines schema, track, controls, modeline, etc."
   [schema slices context]
   [:div#main-ui
-   [main-controls]
+   [main-controls context]
    [:div#tracker
     [schema-line schema]
     [:div#slices
@@ -92,5 +98,6 @@
                line-number
                (= line-number active-line)
                context]))]
-    [modeline (:mode @context)]]
+    [modeline (:mode @context)
+              (keyword (str "octave" (:octave @context)))]]
    [add-channel-control]])

@@ -9,9 +9,9 @@
 (defn create-chip!
   "Just returns a vector of output-connected sources for now."
   ([schema] (create-chip! schema (a/create-audio-context)))
-  ([schema context]
+  ([schema audio-context]
     {:schema schema
-     :channels (a/create-osc-channels! context schema)}))
+     :channels (a/create-osc-channels! audio-context schema)}))
 
 (defn chip-off! [chip]
   (doseq [channel (:channels chip)]
@@ -51,16 +51,19 @@
 (defn play-track
   "Repeatedly consume slices (at a set interval) until the sequence of slices
   is empty."
-  [chip track interval] ;; TODO XXX FIXME start here next time
+  [context] ;; TODO XXX FIXME start here next time
   ;; TODO need to clear all the chip attributes before playback
-  (let [slices (u/delayed-coll-chan track interval)
-        ch (chan)]
+  (prn "here we are")
+  (let [state @context
+        interval (/ 15000 (:bpm state))
+        chip- (:chip state)
+        chip (if chip- chip- (create-chip! (:schema state) (:audio-context state)))
+        track (u/delayed-coll-chan (:slices state) interval)]
+    (chip-off! chip)
+    (swap! context assoc :chip chip)
     (go-loop []
-      (when-let [slice (<! slices)]
-        ;; (print (apply str (map first note))) ;; TODO derete
-        (>! ch (str slice)) ;; TODO derete
+      (when-let [slice (<! track)]
+        (print (apply str (map first slice))) ;; TODO derete
         (set-chip-attrs! chip slice)
         (recur))
-     (close! ch)
-     (chip-off! chip))
-    ch))
+      (chip-off! chip))))

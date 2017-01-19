@@ -10,24 +10,29 @@
 
 (def change-mode-mappings
   {:KeyI      :insert
-   :KeyR      :replace-one
+   :KeyR      :replace
    :KeyV      :v-block  ;; non-standard
-   :ShiftKeyR :replace-many
+   ; :ShiftKeyR :replace-many
    :ShiftKeyV :v-line})
 
-(def always-move-mappings
+(def common-mappings
   {:relative-movement
    {:ArrowDown  :down-line
     :ArrowUp    :up-line
     :ArrowLeft  :left-attr
     :ArrowRight :right-attr
     :Tab        :right-chan
-    :ShiftTab   :left-chan}})
+    :ShiftTab   :left-chan}
+  :edit-octave
+  {:Equal :up-octave
+   :Minus :down-octave
+   :ShiftEqual :swap-up-octave
+   :ShiftMinus :swap-down-octave}})
 
 (def insert-dispatch-mappings
   (merge-with
     conj
-    always-move-mappings
+    common-mappings
     {:edit-note
      {:KeyA :C   :ShiftKeyA :C# :KeyW :C#
       :KeyS :D   :ShiftKeyS :D# :KeyE :D#
@@ -37,16 +42,12 @@
       :KeyH :A   :ShiftKeyH :A# :KeyU :A#
       :KeyJ :B
       :KeyX :off
-      :Backspace :backspace}
-
-     :edit-octave
-     {:Equal :up-octave
-      :Minus :down-octave}}))
+      :Backspace :backspace}}))
 
 (def normal-dispatch-mappings
   (merge-with
     conj
-    always-move-mappings
+    common-mappings
     {:relative-movement
      {:KeyJ :down-line
       :KeyK :up-line
@@ -81,13 +82,13 @@
 
    :edit-note ;; octave offsets
    {:C 0 :C# 0 :D 0 :D# 0 :E 0 :F 0 :F# 0 :G 0 :G# 0
-    :A 1 :A# 1 :B 1
+    :A 0 :A# 0 :B 0
     :off nil
     :delete nil ;; these are... hacky
     :backspace nil} ;; explicit nil so we know where the dispatcher goes
 
    :edit-octave
-   {:up-octave 1 :down-octave -1}})
+   #{:up-octave :down-octave}})
 
 (def -movement-keys
   #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab :ShiftTab})
@@ -151,7 +152,8 @@
   (set-note! note octave line chan context)
   (set-relative-position! direction context))
 
-(defn edit-note-handler [note octave-offset context]
+;; next two fns are really spaghetti... well, really, this whole file is spaghetti
+(defn insert-note-handler [note octave-offset context]
   (let [state @context
         line  (:active-line state)
         chan  (:active-chan state)
@@ -160,12 +162,25 @@
       :off (-set-note-and-move :off nil line chan :down-line context)
       :delete (-set-note-and-move nil nil line chan nil context)
       :backspace (do (set-relative-position! :up-line context)
-                     (edit-note-handler :delete nil context))
+                     (insert-note-handler :delete nil context))
       ;; static analysis doesn't like this when-let
       ;(when-let [octave-offset (and (zero? attr) octave-offset-)]
       (when (and (zero? attr) octave-offset)
         (-set-note-and-move note (+ octave-offset (:octave state))
           line chan :down-jump context)))))
+
+(defn edit-note-handler [note octave-offset context]
+  (when (= :replace (:mode @context))
+    (insert-note-handler :delete nil context))
+  (insert-note-handler note octave-offset context))
+
+(defn edit-octave-handler [octave _ context]
+  (let [current (:octave @context)
+        doctave (case octave
+                  :up-octave (if (> 12 current) 1 0)
+                  :down-octave (if (pos? current) -1 0)
+                  0)]
+    (swap! context assoc :octave (+ current doctave))))
 
 (defn maybe-change-mode [keycode context]
   (if (= :Escape keycode)
@@ -207,10 +222,10 @@
       (let [dispatch-mappings (case (:mode @context)
                                 :normal normal-dispatch-mappings
                                 :insert insert-dispatch-mappings
-                                :replace-one nil
-                                :replace-many nil
+                                :replace insert-dispatch-mappings
                                 :v-line nil
-                                :v-block nil)
+                                :v-block nil
+                                nil)
             [dispatch-key
              internal-key
              internal-value]  (dispatch-info keycode dispatch-mappings)
@@ -218,7 +233,7 @@
                       :relative-movement relative-movement-handler
                       :absolute-movement absolute-movement-handler
                       :edit-note         edit-note-handler
-                      ;:octave            edit-octave-handler
+                      :edit-octave       edit-octave-handler
                       identity)]
         (handler internal-key internal-value context)))))
 

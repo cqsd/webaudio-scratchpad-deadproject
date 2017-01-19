@@ -10,6 +10,28 @@ user=> (lets-go) ;; starts figwheel and a cljs repl
 
 (Yeah, I know all the namespace say chipper right now)
 
+### Controls
+#### Normal Mode
+| Key                  | Effect                          |
+|----------------------|---------------------------------|
+| `hjkl/←↓↑→`          | left, down, up, right one space |
+| `w/b (Tab/Shift+Tab)`| right/left one channel          |
+| `g/G`                | got to first/last line          |
+| `0/$`                | go to first/last channel        |
+| `x`                  | delete note under cursor        |
+| `i`                  | switch to insert mode           |
+
+#### Insert Mode
+| Key                  | Effect                          |
+|----------------------|---------------------------------|
+| `a..j`               | enter notes C..B                |
+| `w..u/Shift+a..j`    | enter accidentals               |
+| `x`                  | enter rest                      |
+| `Backspace`          | delete above cursor             |
+| `Escape`             | switch to normal mode           |
+
+TODO: octave changes, volume controls
+
 #### Progress milestones:
 
 Jan-18: selection is unfucked, still needs some optimization:

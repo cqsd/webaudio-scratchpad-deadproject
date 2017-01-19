@@ -12,16 +12,28 @@
    [:span.button "▶"]
    [:span.button "✎"]])
 
+(defn schema-line [schema]
+  [:pre#schema
+   (apply str
+          "     "  ;; length-5 padding
+          (for [instrument schema]
+            (gs/format " %-11s" (name instrument))))])
+
+(defn modeline [mode]
+  [:pre#modeline (str " " mode)])
+
 (defn channel
   "One line of attributes for a single channel."
   [[note octave gain effect] chan-id chan-active? context]
-  (let [note-off?    (or (= :off note) (nil? note))
-        note         (if note-off? "-" (name note))
-        octave       (if (or note-off? (not octave)) "-" octave)
-        attr-strs    [(str " " note (when (= 1 (count note)) "-") octave " ")
-                      (or gain " - ")
-                      (or effect " - ")]
-        active-attr  (if chan-active? (:active-attr @context) -1)]
+  (let [note        (case note
+                      :off "X"
+                      nil  "-"
+                      (name note))
+        octave      (or octave "-")
+        attr-strs   [(str " " note (when (= 1 (count note)) "-") octave " ")
+                     (or gain " - ")
+                     (or effect " - ")]
+        active-attr (if chan-active? (:active-attr @context) -1)]
     [:span.pipe-sep
      (for [[s attr-num] (map vector attr-strs (range))
            :let [attr-id (str chan-id "-" attr-num)
@@ -57,25 +69,22 @@
        ^{:key chan-id}
        [channel attrs chan-id chan-active? context]))])
 
-(defn tracker
+(defn main-ui
   "Main UI. Combines schema, track, controls, modeline, etc."
   [schema slices context]
-  [:div#tracker
+  [:div#main-ui
    [main-controls]
-   [:div#track
-    [:pre#schema
-     (apply str
-            "     "  ;; length-5 padding
-            (for [instrument schema]
-              (gs/format " %-11s" (name instrument))))]
+   [:div#tracker
+    [schema-line schema]
     [:div#slices
      (let [active-line (:active-line @context)]
-       (for [[slice line-number] (map vector slices (range))
+       (for [[slice line-number] (map vector (:slices @context) (range))
              :let [line-id (str "line-" line-number)]]
          ^{:key line-id}
          [line slice
                line-id
                line-number
                (= line-number active-line)
-               context]))]]
+               context]))]
+    [modeline (:mode @context)]]
    [add-channel-control]])

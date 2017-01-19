@@ -1,56 +1,60 @@
-;; XXX prevent scrolling on space https://stackoverflow.com/questions/18522864/disable-scroll-down-when-spacebar-is-pressed-on-firefox
-;; XXX I did the mappings without thinking
-;; There's a good chance there's no need at all for most of these
+;; there's a lot of just... data in this file
+;; a lot of it is not strictly necessary; it's just for convenience
+;; XXX the semantics of internal mappings is inconsistent
 (ns chipper.keyboard
   (:require [cljs.core.async :refer [put! pipe chan close! timeout]]
             [goog.events :as events])
   (:require-macros [cljs.core.async.macros :refer [go-loop]]))
 
+(defn -to-internal [event-keycode mappings]
+  ;; includes pass-through for things that already have good-enough key-codes
+  ;; to use as internal values
+  (get (:event mappings) event-keycode event-keycode))
+
 ; ---------------------------------------------------------------------
 ; MAPPINGS ------------------------------------------------------------
 ; ---------------------------------------------------------------------
 
-(def note-mapping
-  (merge                   ; idk how to process shift using keycodes so
-    {:KeyA :C   :KeyW :C#  ; :KeyA :C+
-     :KeyE :D   :KeyR :D#  ; :KeyE :D+
-     :KeyD :E
-     :KeyF :F   :KeyT :F#  ; :KeyF :F+
-     :KeyG :G   :KeyY :G#  ; :KeyG :G+
-     :KeyH :A   :KeyI :A#  ; :KeyH :A+
-     :KeyJ :B
+(def change-mode-mappings
+  {;:Escape    :normal
+   :KeyI      :insert
+   :KeyR      :replace-one
+   :KeyV      :v-block  ;; non-standard
+   :ShiftKeyR :replace-many
+   :ShiftKeyV :v-line})
 
-     :BracketRight :upoctave  ; XXX this is very suspect
-     :BracketLeft  :downoctave}
+(def insert-mappings
+  {:event
+   {:KeyA :C   :ShiftKeyA :C# :KeyW :C#
+    :KeyS :D   :ShiftKeyS :D# :KeyE :D#
+    :KeyD :E
+    :KeyF :F   :ShiftKeyF :F# :KeyT :F#
+    :KeyG :G   :ShiftKeyG :G# :KeyY :G#
+    :KeyH :A   :ShiftKeyH :A# :KeyU :A#
+    :KeyJ :B
 
-    ;; {:Digit1 :octave1..:Digit0 :octave0}
-    (apply merge ; is this even necessary? maybe just write into the handler
-           (for [n (range 0 10)]
-             {(keyword (str "Digit" n))
-              (keyword (str "octave" n))}))))
+    :KeyX :off
 
-(def volume-mapping ; is this even necessary? maybe just write into the handler
-  ;; {:Digit1 1...:Digit0 0}
-  (apply merge
-         (for [n (range 0 10)]
-           {(keyword (str "Digit" n)) n})))
+    :Equal :upoctave
+    :Minus :downoctave}
+
+   :internal  ;; lmk if there's a better way to do this bullshit
+   {:C 0 :C# 0 :D 0 :D# 0 :E 0 :F 0 :F# 0 :G 0 :G# 0
+    :A 1 :A# 1 :B 1}})
 
 (def movement-mappings
   ;; TODO jump keys (g, 0, etc)
   {:event  ;; event mappings take event data -> internal rep
-   {:KeyJ :down-line      :ArrowDown  :down-line
-    :KeyK :up-line        :ArrowUp    :up-line
+   {:KeyJ :down-line    :ArrowDown  :down-line
+    :KeyK :up-line      :ArrowUp    :up-line
     :KeyH :left-attr    :ArrowLeft  :left-attr
     :KeyL :right-attr   :ArrowRight :right-attr
 
     :Tab      :right-chan   :KeyW :right-chan
     :ShiftTab :left-chan    :KeyB :left-chan
 
-    ;; TODO
-    ; :Equal :?
-    ; :Minus :?
-    :BracketRight :down-measure
-    :BracketLeft  :up-measure}
+    :ShiftBracketRight :down-measure
+    :ShiftBracketLeft  :up-measure}
 
    :internal  ;; internal mappings take internal -> whatever is needed for use?
    {:down-line    [1 nil 0] :up-line    [-1 nil 0]
@@ -58,14 +62,8 @@
     :right-chan   [0 1 0]   :left-chan  [0 -1 0]
     :down-measure [4 nil 0] :up-measure [-4 nil 0]}})
 
-(def insert-mode-mappings
-  {:notes note-mapping
-   :volume volume-mapping
-   :effects nil
-   :defult nil})
-
-(def normal-mode-mappings
-  {:default movement-mappings})
+(def -movement-keys
+  (apply hash-set :Space :ShiftSpace (keys (:event movement-mappings))))
 
 ; ---------------------------------------------------------------------
 ; HANDLERS ------------------------------------------------------------
@@ -73,10 +71,9 @@
 
 ;; XXX keycode needs to be a keyword...
 (defn movement-handler [internal-code context]
-  ;; abusing the let macro...
-  (let [state         @context ;; I foresee a race condition
-        active-line   (:active-line state)  ;; there's gotta be a better way
-        active-chan   (:active-chan state)  ;; to make these selections
+  (let [state         @context
+        active-line   (:active-line state)
+        active-chan   (:active-chan state)
         active-attr   (:active-attr state)
         [dline
          dchan
@@ -94,9 +91,53 @@
            :active-chan next-chan
            :active-attr next-attr)))
 
-; (prn {:active-attr (:active-attr @context)
-;           :active-chan (:active-chan @context)
-;           :active-line (:active-line @context)})
+(defn -set-note-and-move [note octave line chan context]
+  (swap! context update-in [:slices line chan]
+         #(assoc %
+                 0 note
+                 1 octave))
+  (movement-handler :down-line context))
+
+(defn -note-handler [note-code context])
+(defn -octave-handler [octave-code context])
+
+(defn insert-handler [internal-code context]
+  ;; this one is really bad
+  (let [state @context
+        [line chan attr] (vals (select-keys
+                                 state
+                                 [:active-line :active-chan :active-attr]))]
+    (if (= :off internal-code)
+      (-set-note-and-move :off nil line chan context)
+      (when-let [octave-offset (and (zero? attr)
+                                    (get (:internal insert-mappings) internal-code))]
+        (-set-note-and-move internal-code
+                   (+ octave-offset (:octave state))
+                   line chan context)))))
+
+(defn maybe-change-mode [keycode context]
+  (if (= :Escape keycode)
+    (do (swap! context assoc :mode :normal) nil)
+    (if-let [mode (and (= :normal (:mode @context))
+                       (get change-mode-mappings keycode))]
+      (do (swap! context assoc :mode mode) nil)
+      keycode)))
+
+(defn dispatcher [ev context]
+  ;; there should just be a map of movement key codes, I think.
+  (when (some #{(keyword (.-code ev))} -movement-keys)
+    (.preventDefault ev))
+  (let [keycode- (if (.-shiftKey ev)
+                   (keyword (str "Shift" (.-code ev)))
+                   (keyword (.-code ev)))
+        keycode  (maybe-change-mode keycode- context)]
+    (case (:mode @context)
+      :normal (movement-handler (-to-internal keycode movement-mappings) context)
+      :insert (insert-handler (-to-internal keycode insert-mappings) context)
+      :replace-one nil
+      :replace-many nil
+      :v-line nil
+      :v-block nil)))
 
 ;; TODO this needs to go somewhere else (should the chan also handle mousdown?)
 (defn init-keycode-chan! []

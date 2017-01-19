@@ -30,16 +30,22 @@
   node)
 
 (defn create-osc
-  ([context osc-type] (create-osc context osc-type :A 4))
-  ;; TODO this second arity is probably not necessary
-  ([context osc-type & freq-args]
-   (let [osc (create-osc context osc-type)
-         freq (if (number? (first freq-args))
-                (first freq-args)
-                (apply n/frequency freq-args)) ]
-     (set! (.-type osc) osc-type)
-     (set! (.-value (.-frequency osc)) freq)
-     osc)))
+  [context osc-type-]
+  (let [osc-type (name osc-type-)
+        osc (.createOscillator context osc-type)]
+    (set! (.-type osc) osc-type)
+    osc))
+  ; ([context osc-type] (create-osc context osc-type :A 4))
+  ; ;; TODO this second arity is probably not necessary
+  ; ([context osc-type- & freq-args]
+  ;  (let [osc-type (name osc-type-)
+  ;        osc (.createOscillator context osc-type)
+  ;        freq (if (number? (first freq-args))
+  ;               (first freq-args)
+  ;               (apply n/frequency freq-args)) ]
+  ;    (set! (.-type osc) osc-type)
+  ;    (set! (.-value (.-frequency osc)) freq)
+  ;    osc)))
 
 (defn create-gain
   ([context] (create-gain context 1))

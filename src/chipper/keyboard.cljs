@@ -9,8 +9,8 @@
 ; ---------------------------------------------------------------------
 
 (def change-mode-mappings
-  {:KeyI      :insert
-   :KeyR      :replace
+  {:KeyI      :edit
+   ; :KeyR      :replace
    :KeyV      :v-block  ;; non-standard
    ; :ShiftKeyR :replace-many
    :ShiftKeyV :v-line})
@@ -217,14 +217,12 @@
                    (keyword (str "Shift" (.-code ev)))
                    (keyword (.-code ev)))]
     (when-let [keycode (maybe-change-mode keycode- context)]
-      ;; dispatch-by-mode is a bit indirect here; TODO refactor?
-      (prn keycode)
       (let [dispatch-mappings (case (:mode @context)
                                 :normal normal-dispatch-mappings
-                                :insert insert-dispatch-mappings
-                                :replace insert-dispatch-mappings
-                                :v-line nil
-                                :v-block nil
+                                :edit insert-dispatch-mappings
+                                ; :replace insert-dispatch-mappings
+                                ; :v-line nil
+                                ; :v-block nil
                                 nil)
             [dispatch-key
              internal-key

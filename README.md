@@ -1,10 +1,18 @@
 ## Chippy
-Very WIP (i.e., not currently functional) in-browser chiptune tracker.
+Very WIP in-browser chiptune tracker.
+
+Proof of concept playback and modal editing are available,
+but missing some things like action repetition, yank/put,
+undo/redo, visual mode, effects... (this is TODO, by the way)
+
+You can try it out with `lein cljsbuild once min`, after which
+you can open `resources/public/index.html` to see a little demo.
+(TODO: put nightly on github.io)
 
 You can try working on it with this:
 ```
 $ lein repl
-# once the repl starts:
+$ # once the repl starts:
 user=> (lets-go) ;; starts figwheel and a cljs repl
 ```
 

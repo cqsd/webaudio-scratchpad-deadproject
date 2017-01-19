@@ -22,7 +22,7 @@
      :active-attr 0
      :octave 4
      :jump-size 1
-     :bpm 100
+     :bpm 160
      :mode :normal}))
 
 (defonce asdf (atom {:listeners-initialized? nil}))

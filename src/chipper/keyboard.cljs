@@ -60,9 +60,10 @@
       :ShiftBracketLeft  :up-measure}
 
      :absolute-movement
-     {:ShiftKeyG :last-line
-      :KeyG      :first-line
-      :Digit0    :first-chan}
+     {:ShiftKeyG   :last-line
+      :KeyG        :first-line
+      :ShiftDigit4 :last-chan
+      :Digit0      :first-chan}
 
      :edit-note
      {:KeyX :delete}}))
@@ -102,11 +103,18 @@
 
 (defn absolute-movement-handler [_ position- context]
   (let [position (case position-
-                   :last-line  [(count (:slices @context))]
+                   :last-line  [(dec (count (:slices @context)))]
                    :first-line [0]
                    :first-chan [nil 0 0]
-                   :last-chan  [nil (count (:schema @context))])]
+                   :last-chan  [nil (dec (count (:schema @context)))])]
     (set-position! position context)))
+
+(defn bounded-add [maximum & args]
+  ;; no sanity check on args because i'm the one using this fn
+  ;; also is there a better way to do this because this seems excessive
+  (let [acc (reduce + args)]
+    (if (neg? acc) 0
+      (if (>= acc maximum) maximum acc))))
 
 (defn relative-movement-handler [_ move-vector context]
   (let [state         @context
@@ -123,8 +131,8 @@
         next-attr-    (+ active-attr dattr)
         dchan         (or dchan
                           (if (or (neg? next-attr-) (> next-attr- 2)) dattr 0))
-        next-line     (mod (+ active-line dline) (count (:slices state)))
-        next-chan     (mod (+ active-chan dchan) (count (:schema state)))
+        next-line     (bounded-add (dec (count (:slices state))) active-line dline)
+        next-chan     (bounded-add (dec (count (:schema state))) active-chan dchan)
         next-attr     (mod next-attr- 3)]
     (prn [move-vector dchan dline])
     (set-position! [next-line next-chan next-attr] context)))

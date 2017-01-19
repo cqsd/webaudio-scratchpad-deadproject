@@ -1,119 +1,163 @@
-;; there's a lot of just... data in this file
-;; a lot of it is not strictly necessary; it's just for convenience
-;; XXX the semantics of internal mappings is inconsistent
+;; I think I'm one level too deep with the maps.
 (ns chipper.keyboard
   (:require [cljs.core.async :refer [put! pipe chan close! timeout]]
             [goog.events :as events])
   (:require-macros [cljs.core.async.macros :refer [go-loop]]))
-
-(defn -to-internal [event-keycode mappings]
-  ;; includes pass-through for things that already have good-enough key-codes
-  ;; to use as internal values
-  (get (:event mappings) event-keycode event-keycode))
 
 ; ---------------------------------------------------------------------
 ; MAPPINGS ------------------------------------------------------------
 ; ---------------------------------------------------------------------
 
 (def change-mode-mappings
-  {;:Escape    :normal
-   :KeyI      :insert
+  {:KeyI      :insert
    :KeyR      :replace-one
    :KeyV      :v-block  ;; non-standard
    :ShiftKeyR :replace-many
    :ShiftKeyV :v-line})
 
-(def insert-mappings
-  {:event
-   {:KeyA :C   :ShiftKeyA :C# :KeyW :C#
-    :KeyS :D   :ShiftKeyS :D# :KeyE :D#
-    :KeyD :E
-    :KeyF :F   :ShiftKeyF :F# :KeyT :F#
-    :KeyG :G   :ShiftKeyG :G# :KeyY :G#
-    :KeyH :A   :ShiftKeyH :A# :KeyU :A#
-    :KeyJ :B
+(def always-move-mappings
+  {:relative-movement
+   {:ArrowDown  :down-line
+    :ArrowUp    :up-line
+    :ArrowLeft  :left-attr
+    :ArrowRight :right-attr
+    :Tab        :right-chan
+    :ShiftTab   :left-chan}})
 
-    :KeyX :off
+(def insert-dispatch-mappings
+  (merge-with
+    conj
+    always-move-mappings
+    {:edit-note
+     {:KeyA :C   :ShiftKeyA :C# :KeyW :C#
+      :KeyS :D   :ShiftKeyS :D# :KeyE :D#
+      :KeyD :E
+      :KeyF :F   :ShiftKeyF :F# :KeyT :F#
+      :KeyG :G   :ShiftKeyG :G# :KeyY :G#
+      :KeyH :A   :ShiftKeyH :A# :KeyU :A#
+      :KeyJ :B
+      :KeyX :off
+      :Backspace :backspace}
 
-    :Equal :upoctave
-    :Minus :downoctave}
+     :edit-octave
+     {:Equal :up-octave
+      :Minus :down-octave}}))
 
-   :internal  ;; lmk if there's a better way to do this bullshit
-   {:C 0 :C# 0 :D 0 :D# 0 :E 0 :F 0 :F# 0 :G 0 :G# 0
-    :A 1 :A# 1 :B 1}})
+(def normal-dispatch-mappings
+  (merge-with
+    conj
+    always-move-mappings
+    {:relative-movement
+     {:KeyJ :down-line
+      :KeyK :up-line
+      :KeyH :left-attr
+      :KeyL :right-attr
 
-(def movement-mappings
-  ;; TODO jump keys (g, 0, etc)
-  {:event  ;; event mappings take event data -> internal rep
-   {:KeyJ :down-line    :ArrowDown  :down-line
-    :KeyK :up-line      :ArrowUp    :up-line
-    :KeyH :left-attr    :ArrowLeft  :left-attr
-    :KeyL :right-attr   :ArrowRight :right-attr
+      :KeyW :right-chan
+      :KeyB :left-chan
 
-    :Tab      :right-chan   :KeyW :right-chan
-    :ShiftTab :left-chan    :KeyB :left-chan
+      :ShiftBracketRight :down-measure
+      :ShiftBracketLeft  :up-measure}
 
-    :ShiftBracketRight :down-measure
-    :ShiftBracketLeft  :up-measure}
+     :absolute-movement
+     {:ShiftKeyG :last-line
+      :KeyG      :first-line
+      :Digit0    :first-chan}
 
-   :internal  ;; internal mappings take internal -> whatever is needed for use?
-   {:down-line    [1 nil 0] :up-line    [-1 nil 0]
+     :edit-note
+     {:KeyX :delete}}))
+
+(def internal-value-mappings
+  {:relative-movement
+   {:down-line    [1 nil 0] :up-line    [-1 nil 0] ;; these nils are a hack
     :right-attr   [0 nil 1] :left-attr  [0 nil -1]
     :right-chan   [0 1 0]   :left-chan  [0 -1 0]
-    :down-measure [4 nil 0] :up-measure [-4 nil 0]}})
+    :down-measure [4 nil 0] :up-measure [-4 nil 0]
+    :down-jump :down-jump :up-jump :up-jump}
+
+   :absolute-movement
+   #{:last-line :first-line :first-chan :last-chan}
+
+   :edit-note ;; octave offsets
+   {:C 0 :C# 0 :D 0 :D# 0 :E 0 :F 0 :F# 0 :G 0 :G# 0
+    :A 1 :A# 1 :B 1
+    :off nil
+    :delete nil ;; these are... hacky
+    :backspace nil} ;; explicit nil so we know where the dispatcher goes
+
+   :edit-octave
+   {:up-octave 1 :down-octave -1}})
 
 (def -movement-keys
-  (apply hash-set :Space :ShiftSpace (keys (:event movement-mappings))))
+  #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab :ShiftTab})
 
 ; ---------------------------------------------------------------------
 ; HANDLERS ------------------------------------------------------------
 ; ---------------------------------------------------------------------
+(defn set-position! [[line chan attr] context]
+  (swap! context assoc
+         :active-line (or line (:active-line @context))
+         :active-chan (or chan (:active-chan @context))
+         :active-attr (or attr (:active-attr @context))))
 
-;; XXX keycode needs to be a keyword...
-(defn movement-handler [internal-code context]
+(defn absolute-movement-handler [_ position- context]
+  (let [position (case position-
+                   :last-line  [(count (:slices @context))]
+                   :first-line [0]
+                   :first-chan [nil 0 0]
+                   :last-chan  [nil (count (:schema @context))])]
+    (set-position! position context)))
+
+(defn relative-movement-handler [_ move-vector context]
   (let [state         @context
         active-line   (:active-line state)
         active-chan   (:active-chan state)
         active-attr   (:active-attr state)
         [dline
-         dchan
-         dattr]       (get (:internal movement-mappings) internal-code [0 0 0])
+         dchan        ;; this is really fuckin savage
+         dattr]       (case move-vector
+                        :up-jump [(- (:jump-size @context)) 0 0]
+                        :down-jump [(:jump-size @context) 0 0]
+                        (or move-vector [0 0 0]))
         ;; since dattr is signed, dchan can just take its value when crossing over
+        next-attr-    (+ active-attr dattr)
         dchan         (or dchan
-                          (if-not (some #{(+ active-attr dattr)} (range 0 3))
-                            dattr 0))
+                          (if (or (neg? next-attr-) (> next-attr- 2)) dattr 0))
         next-line     (mod (+ active-line dline) (count (:slices state)))
         next-chan     (mod (+ active-chan dchan) (count (:schema state)))
-        next-attr     (mod (+ active-attr dattr) 3)]
-    (prn [internal-code dline])
-    (swap! context assoc
-           :active-line next-line
-           :active-chan next-chan
-           :active-attr next-attr)))
+        next-attr     (mod next-attr- 3)]
+    (prn [move-vector dchan dline])
+    (set-position! [next-line next-chan next-attr] context)))
 
-(defn -set-note-and-move [note octave line chan context]
+(defn set-note! [note octave line chan context]
   (swap! context update-in [:slices line chan]
-         #(assoc %
-                 0 note
-                 1 octave))
-  (movement-handler :down-line context))
+         #(assoc % 0 note 1 octave)))
 
-(defn -note-handler [note-code context])
-(defn -octave-handler [octave-code context])
+(defn set-relative-position! [direction context]
+  (relative-movement-handler
+      direction
+      (get (:relative-movement internal-value-mappings) direction)
+      context))
 
-(defn insert-handler [internal-code context]
-  ;; this one is really bad
+(defn -set-note-and-move [note octave line chan direction context]
+  (set-note! note octave line chan context)
+  (set-relative-position! direction context))
+
+(defn edit-note-handler [note octave-offset context]
   (let [state @context
-        [line chan attr] (vals (select-keys
-                                 state
-                                 [:active-line :active-chan :active-attr]))]
-    (if (= :off internal-code)
-      (-set-note-and-move :off nil line chan context)
-      (when-let [octave-offset (and (zero? attr)
-                                    (get (:internal insert-mappings) internal-code))]
-        (-set-note-and-move internal-code
-                   (+ octave-offset (:octave state))
-                   line chan context)))))
+        line  (:active-line state)
+        chan  (:active-chan state)
+        attr  (:active-attr state)]
+    (case note
+      :off (-set-note-and-move :off nil line chan :down-line context)
+      :delete (-set-note-and-move nil nil line chan nil context)
+      :backspace (do (set-relative-position! :up-line context)
+                     (edit-note-handler :delete nil context))
+      ;; static analysis doesn't like this when-let
+      ;(when-let [octave-offset (and (zero? attr) octave-offset-)]
+      (when (and (zero? attr) octave-offset)
+        (-set-note-and-move note (+ octave-offset (:octave state))
+          line chan :down-jump context)))))
 
 (defn maybe-change-mode [keycode context]
   (if (= :Escape keycode)
@@ -123,21 +167,52 @@
       (do (swap! context assoc :mode mode) nil)
       keycode)))
 
+; ---------------------------------------------------------------------
+; DISPATCHING ---------------------------------------------------------
+; ---------------------------------------------------------------------
+;; this is a bit of a clusterfuck
+
+(defn dispatch-info
+  "Returns the dispatch key, internal key, and internal value for the keycode"
+  [keycode dispatch-mappings]
+  (let [k-of-matching-m (fn [[k m]]
+                          (when-let [internal-key (get m keycode)]
+                            [k internal-key ]))
+        [dispatch-key internal-key
+         :as internal-value-position] (some k-of-matching-m dispatch-mappings)]
+    (when dispatch-key
+      [dispatch-key
+       internal-key
+       (get-in internal-value-mappings internal-value-position)])))
+
 (defn dispatcher [ev context]
-  ;; there should just be a map of movement key codes, I think.
+  ;; prevent scrolling on space, arrows, etc
   (when (some #{(keyword (.-code ev))} -movement-keys)
     (.preventDefault ev))
+
   (let [keycode- (if (.-shiftKey ev)
                    (keyword (str "Shift" (.-code ev)))
-                   (keyword (.-code ev)))
-        keycode  (maybe-change-mode keycode- context)]
-    (case (:mode @context)
-      :normal (movement-handler (-to-internal keycode movement-mappings) context)
-      :insert (insert-handler (-to-internal keycode insert-mappings) context)
-      :replace-one nil
-      :replace-many nil
-      :v-line nil
-      :v-block nil)))
+                   (keyword (.-code ev)))]
+    (when-let [keycode (maybe-change-mode keycode- context)]
+      ;; dispatch-by-mode is a bit indirect here; TODO refactor?
+      (prn keycode)
+      (let [dispatch-mappings (case (:mode @context)
+                                :normal normal-dispatch-mappings
+                                :insert insert-dispatch-mappings
+                                :replace-one nil
+                                :replace-many nil
+                                :v-line nil
+                                :v-block nil)
+            [dispatch-key
+             internal-key
+             internal-value]  (dispatch-info keycode dispatch-mappings)
+            handler (case dispatch-key
+                      :relative-movement relative-movement-handler
+                      :absolute-movement absolute-movement-handler
+                      :edit-note         edit-note-handler
+                      ;:octave            edit-octave-handler
+                      identity)]
+        (handler internal-key internal-value context)))))
 
 ;; TODO this needs to go somewhere else (should the chan also handle mousdown?)
 (defn init-keycode-chan! []

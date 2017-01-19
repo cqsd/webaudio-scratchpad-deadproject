@@ -18,7 +18,7 @@
      :active-chan 0
      :active-attr 0
      :octave 4
-     :line-jump-size 2
+     :jump-size 2
      :mode :normal}))
 
 (defonce asdf (atom {:listeners-initialized? nil}))

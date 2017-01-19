@@ -33,14 +33,20 @@
         attr-strs   [(str " " note (when (= 1 (count note)) "-") octave " ")
                      (or gain " - ")
                      (or effect " - ")]
-        active-attr (if chan-active? (:active-attr @context) -1)]
+        active-attr (if chan-active? (:active-attr @context) -1)
+        mode-       (when chan-active? (:mode @context))]
     [:span.pipe-sep
      (for [[s attr-num] (map vector attr-strs (range))
            :let [attr-id (str chan-id "-" attr-num)
                  attr-active? (and chan-active?
-                                   (= attr-num active-attr))]]
+                                   (= attr-num active-attr))
+                 mode (when (and attr-active? (= mode- :insert)) mode-)]]
        ^{:key attr-id}
-       [:span {:id attr-id :class (if attr-active? :active-attr :attr)} s])]))
+       [:span {:id attr-id
+               :class (if attr-active?
+                        (or mode :active-attr)
+                        :attr)}
+        s])]))
 
 (defn line-hex-number [line-number]
   (let [num-mod (mod line-number 4096)]

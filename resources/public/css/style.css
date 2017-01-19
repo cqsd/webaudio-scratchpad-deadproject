@@ -91,7 +91,8 @@ pre {
     background: white;
 }
 
-.active-attr { background: pink; /*#6d9be0;*/ }
+.active-attr { background: #f4bf42; }
+.insert { background: pink; }
 
 .slice { margin: 0; }
 .slice:hover { background: #6d9be0; }

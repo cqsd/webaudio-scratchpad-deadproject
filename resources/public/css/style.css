@@ -37,41 +37,8 @@ pre {
     -ms-user-select:       none;
     user-select:           none;
 }
-
-.active-line {
-    background: #e0ecff;
-    color: black;
-}
-
-.active-attr {
-    background: pink; /*#6d9be0;*/
-}
-
-.slice {
-    margin: 0;
-}
-
-.slice:hover {
-    background: #6d9be0;
-}
-
-.slice:last-child { margin-bottom: 0.3em; }
-
-.attr:hover {
-    color: black;
-    background: white;
-}
-
-.slice span.pipe-sep:after {
-    content: "|";
-}
-
-.slice span.pipe-sep:last-child:after {
-    content: "";
-}
-
 /* ---------- TRACKER ---------- */
-#tracker {
+#main-ui {
     display: -webkit-flex;
     display: flex;
     -webkit-box-flex-direction: row;
@@ -86,7 +53,7 @@ pre {
     margin: auto;
 }
 
-#track {
+#tracker {
     cursor: default;
     border: 1px solid #e0ecff;
     margin: 0 auto;
@@ -103,17 +70,38 @@ pre {
 
 #slices {
     padding-top: 0.45em;
-    max-height: 60vh;
-    overflow: scroll;
+    max-height:  72vh;
+    overflow:    scroll;
 }
 
-#modeline-left {
-    text-align: left;
+#modeline {
+    border-top:    1px solid #e0ecff;
+    margin-top:    0;
+    margin-bottom: 0.52em;
+    padding-top:   0.5em;
 }
 
-#modeline-right {
-    text-align: right;
+.active-line {
+    background: #e0ecff;
+    color: black;
 }
+
+.attr:hover {
+    color: black;
+    background: white;
+}
+
+.active-attr { background: pink; /*#6d9be0;*/ }
+
+.slice { margin: 0; }
+.slice:hover { background: #6d9be0; }
+.slice:last-child { margin-bottom: 0.3em; }
+.slice span.pipe-sep:after { content: "|"; }
+.slice span.pipe-sep:last-child:after { content: ""; }
+
+#modeline-left { text-align: left; }
+
+#modeline-right { text-align: right; }
 
 /* ---------- CONTROLS ---------- */
 .controls {
@@ -170,4 +158,9 @@ pre {
 .selected {
     color: black;
     background: #e0ecff;
+}
+
+div.horizontal-spacer {
+    width: 100%;
+    float: left;
 }

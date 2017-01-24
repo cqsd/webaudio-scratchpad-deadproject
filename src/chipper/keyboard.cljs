@@ -24,8 +24,12 @@
     :Tab        :right-chan
     :ShiftTab   :left-chan}
   :edit-octave
-  {:Equal :up-octave
-   :Minus :down-octave
+  {:Equal      :up-octave
+   :Minus      :down-octave
+   :Space      :up-octave
+   :ShiftSpace :down-octave
+   :Slash      :up-octave
+   :Period     :down-octave
    :ShiftEqual :swap-up-octave
    :ShiftMinus :swap-down-octave}})
 
@@ -54,8 +58,8 @@
       :KeyH :left-attr
       :KeyL :right-attr
 
-      :KeyW :right-chan
-      :KeyB :left-chan
+      :KeyW :down-measure
+      :KeyB :up-measure
 
       :ShiftBracketRight :down-measure
       :ShiftBracketLeft  :up-measure}
@@ -81,17 +85,17 @@
    #{:last-line :first-line :first-chan :last-chan}
 
    :edit-note ;; octave offsets
-   {:C 0 :C# 0 :D 0 :D# 0 :E 0 :F 0 :F# 0 :G 0 :G# 0
-    :A 0 :A# 0 :B 0
-    :off nil
-    :delete nil ;; these are... hacky
-    :backspace nil} ;; explicit nil so we know where the dispatcher goes
+   #{:C :C# :D :D# :E :F :F# :G :G# :A :A# :B
+     :off
+     :delete
+     :backspace}
 
    :edit-octave
    #{:up-octave :down-octave}})
 
 (def -movement-keys
-  #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab :ShiftTab})
+  #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab})
+
 
 ; ---------------------------------------------------------------------
 ; HANDLERS ------------------------------------------------------------
@@ -153,14 +157,14 @@
   (set-relative-position! direction context))
 
 ;; next two fns are really spaghetti... well, really, this whole file is spaghetti
-(defn insert-note-handler [note octave-offset context]
+(defn edit-note-handler [note octave-offset context]
   (let [state @context
         line  (:active-line state)
         chan  (:active-chan state)
         attr  (:active-attr state)]
     (case note
       :off (-set-note-and-move :off nil line chan :down-line context)
-      :delete (-set-note-and-move nil nil line chan nil context)
+      :delete (-set-note-and-move nil nil line chan :down-line context)
       :backspace (do (set-relative-position! :up-line context)
                      (insert-note-handler :delete nil context))
       ;; static analysis doesn't like this when-let
@@ -169,10 +173,16 @@
         (-set-note-and-move note (+ octave-offset (:octave state))
           line chan :down-jump context)))))
 
-(defn edit-note-handler [note octave-offset context]
-  (when (= :replace (:mode @context))
-    (insert-note-handler :delete nil context))
-  (insert-note-handler note octave-offset context))
+(defn edit-other-attr-handler
+  "Only acts on hex. Doesn't need per-attr dispatch at this point."
+  [value ])
+
+(defn edit-attr-handler [value octave-offset context]
+  (let [state @context
+        line  (:active-line state)
+        chan  (:active-chan state)
+        attr  (:active-attr state)]
+  (insert-note-handler note octave-offset context)))
 
 (defn edit-octave-handler [octave _ context]
   (let [current (:octave @context)
@@ -182,7 +192,7 @@
                   0)]
     (swap! context assoc :octave (+ current doctave))))
 
-(defn maybe-change-mode [keycode context]
+(defn maybe-change-mode! [keycode context]
   (if (= :Escape keycode)
     (do (swap! context assoc :mode :normal) nil)
     (if-let [mode (and (= :normal (:mode @context))
@@ -193,12 +203,12 @@
 ; ---------------------------------------------------------------------
 ; DISPATCHING ---------------------------------------------------------
 ; ---------------------------------------------------------------------
-;; this is a bit of a clusterfuck
+;; TODO needs reorganization
 
 (defn dispatch-info
   "Returns the dispatch key, internal key, and internal value for the keycode"
   [keycode dispatch-mappings]
-  (let [k-of-matching-m (fn [[k m]]
+  (let [k-of-matching-m (fn [[k m]] ;; capture------------v
                           (when-let [internal-key (get m keycode)]
                             [k internal-key ]))
         [dispatch-key internal-key
@@ -208,32 +218,54 @@
        internal-key
        (get-in internal-value-mappings internal-value-position)])))
 
-(defn dispatcher [ev context]
-  ;; prevent scrolling on space, arrows, etc
-  (when (some #{(keyword (.-code ev))} -movement-keys)
-    (.preventDefault ev))
+(def ev-dispatch-mappings
+  {:normal normal-dispatch-mappings
+   :edit insert-dispatch-mappings})
 
-  (let [keycode- (if (.-shiftKey ev)
-                   (keyword (str "Shift" (.-code ev)))
-                   (keyword (.-code ev)))]
-    (when-let [keycode (maybe-change-mode keycode- context)]
-      (let [dispatch-mappings (case (:mode @context)
-                                :normal normal-dispatch-mappings
-                                :edit insert-dispatch-mappings
-                                ; :replace insert-dispatch-mappings
-                                ; :v-line nil
-                                ; :v-block nil
-                                nil)
-            [dispatch-key
-             internal-key
-             internal-value]  (dispatch-info keycode dispatch-mappings)
-            handler (case dispatch-key
-                      :relative-movement relative-movement-handler
-                      :absolute-movement absolute-movement-handler
-                      :edit-note         edit-note-handler
-                      :edit-octave       edit-octave-handler
-                      identity)]
-        (handler internal-key internal-value context)))))
+;; goal: dispatch by line now; the handlers shouldn't have to
+;; deref to get the coordinates:w
+
+(defn active-position [context]
+  (let [state @context]
+    [(:active-line state) (:active-chan state) (:active-attr state)]))
+
+(defn prevent-movement! [ev]
+  "Prevent movement keys (arrows, space, tab) from moving focus or scrolling."
+  (when (-movement-keys (keyword (.-code ev)))
+    (.preventDefault ev))
+  ev)
+
+(defn translate-keycode [ev]
+  "Takes keydown event and returns keycode as keyword, e.g., :KeyI. If
+  SHIFT is held, concats with Shift first, e.g., :ShiftKeyI."
+  (if (.-shiftKey ev)
+    (keyword (str "Shift" (.-code ev)))
+    (keyword (.-code ev))))
+
+(defn dispatcher
+  "Translates event keycode into directives, then acts on the directives.
+  Some things preventing this from being a little cleaner:
+   - preventDefault and mode switching should happen first because
+     - the first is necessary
+     - the second allows short-circuit logic
+   - mode switching is functionally different from movement and editing;
+     writing it into one of the handlers just means moving the logic of
+     what to do with Escape and KeyI somewhere else, so we might as well
+     do it here where it's obvious."
+  [ev context]
+  ;; this is what happens you need some imperative clojure I guess
+  (when-let [keycode (-> ev
+                         (prevent-movement!)
+                         (translate-keycode!)
+                         (maybe-change-mode! context))]
+    (let [position (active-position context)
+          dispatch-mappings (get ev-dispatch-mappings (:mode @context))
+          dispatch-info* (dispatch-info keycode dispatch-mappings)
+          directives (as-> dispatch-info* d
+                       (movement-handler d)
+                       (attr-handler d))]
+      (set-attr! directives context)
+      (set-position directives context))))
 
 ;; TODO this needs to go somewhere else (should the chan also handle mousdown?)
 (defn init-keycode-chan! []

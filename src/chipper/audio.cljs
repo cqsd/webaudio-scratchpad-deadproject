@@ -4,7 +4,8 @@
 ;; - channel - a plain js object: {source: source, output: output} TODO maybe rethink this
 ;; god this is by far the worst Clojure I have ever written
 (ns chipper.audio
-  (:require [chipper.notes :as n]))
+  (:require [chipper.notes :as n]
+            [chipper.utils :as u]))
 
 (defn create-audio-context []
   (let [context (or js/window.AudioContext
@@ -89,3 +90,10 @@
                      frequency
                      (.-currentTime (:context channel)))
   channel))
+
+(defn set-gain! [channel gain-digit]
+  (let [normalized (u/normalize-digit gain-digit)
+        gain (:gain channel)]
+    (.setValueAtTime (.-gain gain)
+                     normalized
+                     (.-currentTime (:context channel)))))

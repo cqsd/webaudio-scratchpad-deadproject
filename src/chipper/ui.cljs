@@ -39,8 +39,8 @@
                       (name note))
         octave      (or octave "-")
         attr-strs   [(str " " note (when (= 1 (count note)) "-") octave " ")
-                     (or gain " - ")
-                     (or effect " - ")]
+                     (or (when gain (str " " gain " ")) " - ")
+                     (or (when effect (str " " effect " ")) " - ")]
         active-attr (if chan-active? (:active-attr @context) -1)
         mode-       (when chan-active? (:mode @context))]
     [:span.pipe-sep

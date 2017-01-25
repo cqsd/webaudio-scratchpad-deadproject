@@ -1,5 +1,6 @@
 (ns chipper.ui
   (:require [chipper.chips :as c]
+            [chipper.utils :as utils]
             [goog.string :as gs]
             [goog.string.format]
             [reagent.core :as r]))
@@ -8,10 +9,11 @@
   [:div#add-channel.controls
    [:span.button "+"]])
 
-(defn main-controls [context]
+(defn main-controls [context player]
+  ;; save, play, reload, eventually
   [:div#main-controls.controls
-   [:span.button {:on-click #(c/play-track context)} "▶"]
-   [:span.button {:on-click #(prn (:slices @context))} "✎"]])
+   [:span.button {:on-click #(c/play-track context player)} "▶"]
+   [:span.button {:on-click #(utils/save-state context)} "✎"]])
 
 (defn schema-line [schema]
   [:pre#schema
@@ -22,16 +24,16 @@
 
 (defn modeline [& mode]
   [:pre#modeline
-   [:span.pipe-sep
     (for [[stat n] (map vector mode (range))
           :let [id (str "modeline-" n)]]
       ^{:key id}
-      [:span {:id id} (str stat)])]])
+      [:span {:id id} (str stat)])])
 
 (defn channel
   "One line of attributes for a single channel."
-  [[note octave gain effect] chan-id chan-active? context]
-  (let [note        (case note
+  [[note- gain effect] chan-id chan-active? context]
+  (let [[note octave] note-
+        note        (case note
                       :off "X"
                       nil  "-"
                       (name note))
@@ -46,7 +48,8 @@
            :let [attr-id (str chan-id "-" attr-num)
                  attr-active? (and chan-active?
                                    (= attr-num active-attr))
-                 mode (when (and attr-active? (= mode- :insert)) mode-)]]
+                 ;; spaghetti
+                 mode (when (and attr-active? (= mode- :edit)) mode-)]]
        ^{:key attr-id}
        [:span {:id attr-id
                :class (if attr-active?
@@ -81,11 +84,12 @@
        ^{:key chan-id}
        [channel attrs chan-id chan-active? context]))])
 
+;; need to refactor some shit so this doesn't need to take context AND player
 (defn main-ui
   "Main UI. Combines schema, track, controls, modeline, etc."
-  [schema slices context]
+  [schema slices context player]
   [:div#main-ui
-   [main-controls context]
+   [main-controls context player]
    [:div#tracker
     [schema-line schema]
     [:div#slices

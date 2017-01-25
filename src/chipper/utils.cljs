@@ -19,3 +19,13 @@
           (recur (rest coll)))
         (close! ch)))
     ch))
+
+(defn save-state [state]
+  (.setItem js/localStorage "state" @state))
+
+(defn bounded-add [maximum & args]
+  ;; no sanity check on args because i'm the one using this fn
+  ;; also is there a better way to do this because this seems excessive
+  (let [acc (reduce + args)]
+    (if (neg? acc) 0
+      (if (>= acc maximum) maximum acc))))

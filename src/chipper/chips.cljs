@@ -23,7 +23,9 @@
   "Expects attrs to be a vec of [note, gain, effect]. :off turns the channel
   off, ignoring the rest of the attrs. Any nils are ignored."
   [channel attrs]
-  (let [[note octave gain effect] attrs]
+  (let [[[note octave] gain effect] attrs]
+    (when gain
+      (a/set-gain! channel gain))
     (when note
       (if (= :off note)
         (a/chan-off! channel)
@@ -51,13 +53,14 @@
 (defn play-track
   "Repeatedly consume slices (at a set interval) until the sequence of slices
   is empty."
-  [context] ;; TODO XXX FIXME start here next time
+  [context player-] ;; TODO XXX FIXME start here next time
   ;; TODO need to clear all the chip attributes before playback
   (prn "here we are")
   (let [state @context
+        player @player-
         interval (/ 15000 (:bpm state))
-        chip- (:chip state)
-        chip (if chip- chip- (create-chip! (:schema state) (:audio-context state)))
+        chip- (:chip player)
+        chip (if chip- chip- (create-chip! (:schema state) (:audio-context player)))
         track (u/delayed-coll-chan (:slices state) interval)]
     (chip-off! chip)
     (swap! context assoc :chip chip)

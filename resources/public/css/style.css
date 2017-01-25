@@ -92,17 +92,14 @@ pre {
 }
 
 .active-attr { background: #f4bf42; }
-.insert { background: pink; }
+.edit { background: pink; }
 
 .slice { margin: 0; }
 .slice:hover { background: #6d9be0; }
 .slice:last-child { margin-bottom: 0.3em; }
-.slice span.pipe-sep:after { content: "|"; }
-.slice span.pipe-sep:last-child:after { content: ""; }
 
-#modeline-left { text-align: left; }
-
-#modeline-right { text-align: right; }
+span.pipe-sep:after { content: "|"; }
+span.pipe-sep:last-child:after { content: ""; }
 
 /* ---------- CONTROLS ---------- */
 .controls {

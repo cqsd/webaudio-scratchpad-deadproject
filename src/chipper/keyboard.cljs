@@ -36,28 +36,37 @@
     conj
     common-mappings
     {:edit-attr
-     {:KeyA :C   :ShiftKeyA :C# :KeyW :C#
-      :KeyS :D   :ShiftKeyS :D# :KeyE :D#
-      :KeyD :E
-      :KeyF :F   :ShiftKeyF :F# :KeyT :F#
-      :KeyG :G   :ShiftKeyG :G# :KeyY :G#
-      :KeyH :A   :ShiftKeyH :A# :KeyU :A#
-      :KeyJ :B
-      :KeyX :off
-      :Backspace :backspace}}))
+     (merge
+       {:KeyA :C   :ShiftKeyA :C# :KeyW :C#
+        :KeyS :D   :ShiftKeyS :D# :KeyE :D#
+        :KeyD :E
+        :KeyF :F   :ShiftKeyF :F# :KeyT :F#
+        :KeyG :G   :ShiftKeyG :G# :KeyY :G#
+        :KeyH :A   :ShiftKeyH :A# :KeyU :A#
+        :KeyJ :B
+        :KeyX :off
+        :Backspace :backspace}
+
+       ;; {:Digit0 :Digit0...} yeah, this is a really fucking bad hack my god
+       ;; but i mean... it's static! so...
+       (apply hash-map
+              (mapcat identity
+                      (for [n (range 10)
+                            :let [s (keyword (str "Digit" n))]]
+                       [s s]))))}))
 
 (def normal-dispatch-mappings
   (merge-with
     conj
     common-mappings
     {:relative-movement
-     {:KeyJ :down-line
-      :KeyK :up-line
+     {:KeyJ :down-jump
+      :KeyK :up-jump
       :KeyH :left-attr
       :KeyL :right-attr
 
-      :KeyW :down-beat
-      :KeyB :up-beat
+      :KeyW :right-chan
+      :KeyB :left-chan
 
       :ShiftBracketRight :down-beat
       :ShiftBracketLeft  :up-beat}
@@ -72,20 +81,30 @@
      {:KeyX :delete}}))
 
 (def internal-values
-  {;; relative movement
-   ;; :code [d-line d-chan d-attr]
-   ;; the nils are a hack to make logic easier...
-   ;; I mean, this whole solution is a stupid hack but
-   :down-line    [1 nil 0] :up-line    [-1 nil 0]
-   :right-attr   [0 nil 1] :left-attr  [0 nil -1]
-   :right-chan   [0 1 0]   :left-chan  [0 -1 0]
-   :down-beat    [4 nil 0] :up-beat    [-4 nil 0]
+  (merge
+    {;; relative movement
+     ;; :code [d-line d-chan d-attr]
+     ;; the nils are a hack to make logic easier...
+     ;; I mean, this whole solution is a stupid hack but
+     :down-line    [1 nil 0] :up-line    [-1 nil 0]
+     :right-attr   [0 nil 1] :left-attr  [0 nil -1]
+     :right-chan   [0 1 0]   :left-chan  [0 -1 0]
+     :down-beat    [4 nil 0] :up-beat    [-4 nil 0]
 
-   ;; delete note
-   ;; :code     [[note octave] pre-move post-move]
-   :off       [[:off nil] nil :down-line]
-   :delete    [[nil nil] nil :up-line]
-   :backspace [[nil nil] :up-line :up-line]})
+     ;; delete note
+     ;; :code     [[note octave] pre-move post-move]
+     :off       [[:off nil] nil :down-line]
+     :delete    [[nil nil] nil :up-line]
+     :backspace [[nil nil] :up-line :up-line]
+
+     :oh-god
+     {:delete [nil nil :up-line]
+      :backspace [nil :up-line :up-line]}}
+
+    ;; {:Digit0 0..:Digit9 9}
+    (apply hash-map
+           (mapcat identity
+                   (for [n (range 10)] [(keyword (str "Digit" n)) n])))))
 
 (def -movement-keys
   #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab})
@@ -129,22 +148,32 @@
   (let [next-position (relative-position internal-key active-position context)]
     {:set-position next-position}))
 
+;; refactorable
 (defn edit-note-handler
   [internal-key [line chan attr :as active-position] context]
   (let [[note- pre-move post-move-] (get internal-values internal-key)
-        ;; the or is strictly unnecessary
+        ;; this or might be unnecessary
         note (or note- [internal-key (:octave @context)])
         post-move (or post-move- :down-jump)
         pre-move-position (relative-position pre-move active-position context)
         post-move-position (relative-position post-move active-position context)]
-
     {:set-attr [note (or pre-move-position active-position)]
      :set-position post-move-position}))
 
+;; refactorable
 (defn edit-other-attr-handler
   "Only acts on numbers right now, which is... just as well."
-  [internal-value active-position context]
-)
+  [internal-key active-position context]
+  (let [[value- pre-move post-move-] (get-in internal-values [:oh-god internal-key])
+        ;; this is intentional-------------v
+        value (or value-
+                  (when-let [spaghetti (get internal-values internal-key)]
+                    (when-not (vector? spaghetti) spaghetti)))
+        post-move (or post-move- :down-jump)
+        pre-move-position (relative-position pre-move active-position context)
+        post-move-position (relative-position post-move active-position context)]
+    {:set-attr [value pre-move-position]
+     :set-position post-move-position}))
 
 (defn edit-attr-handler
   [internal-key [_ __ attr :as active-position] context]

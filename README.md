@@ -1,4 +1,4 @@
-## Chippy
+## Chipper
 Very WIP in-browser chiptune tracker.
 
 Proof of concept playback and modal editing are available,

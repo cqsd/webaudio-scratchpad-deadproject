@@ -9,51 +9,69 @@
 (def player
   (r/atom
     {:audio-context (create-audio-context)
+     ;; I forgot, but I think :chip is a vec of oscillators?
+     ;; If it exists, it's used. If not, it's created on play
      :chip nil
-     :schema [:square :square :triangle :sawtooth]}))
+     :scheme [:square :square :triangle :sawtooth]}))
 
-(def context
+(def state
   (r/atom
-    (or (if-let [previous-state (.getItem js/localStorage "state")]
-          (cljs.reader/read-string previous-state)) ;; this won't work when compiled
-        {:schema (:schema @player) ;; spaghetti
-         :slices (vec ;; this is a temporary dev hack... hopefully
-                      (for [_ (range 256)]
-                        (vec ;; this is vvv bad
-                             (for [_ (:schema @player)] [nil nil nil nil]))))
-         :active-line 0
-         :active-chan 0
-         :active-attr 0
-         :octave 4
-         :jump-size 2 ;; option to set
-         :bpm 160 ;; option to set
-         :mode :normal})))
+    {:scheme (:scheme @player) ;; spaghetti
+     :slices (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil]))))))
+     :active-line 0
+     :active-chan 0
+     :active-attr 0
+     :active-frame 0
+     :used-frames (vec (repeat 32 nil))
+     :octave 4
+     :jump-size 1 ;; add user option
+     :bpm 100     ;; add user option
+     :mode :normal
+     :player player}))
 
 (defonce asdf (atom {:listeners-initialized? nil}))
 
 (when-not (:listeners-initialized? @asdf)
+  ;; Is there a better way to do this? not that this is bad, since this is a strictly
+  ;; defined set of events, but...
   (.addEventListener
     js/window
     "keydown"
-    #(k/handle-keypress! % context))
+    #(k/handle-keypress! % state))
+
+  (.addEventListener
+    js/window
+    "keydown"
+    #(prn (.-code %)))
 
   (.addEventListener
     js/window
     "mousedown"
-    (fn [ev] (let [id (.-id (.-target ev))
-           [line chan attr] (map js/parseInt (.split id "-"))]
+    (fn [ev]
+      (let [id (.-id (.-target ev))
+           [line- chan- attr- :as id-data] (.split id "-")
+           [line chan attr] (map js/parseInt id-data)]
        (when (every? #(number? %) [line chan attr])
-         (swap! context assoc
+         (swap! state assoc
                 :active-line  line
                 :active-chan  chan
                 :active-attr  attr))
+       (when (= "f" chan-)
+         (swap! state assoc-in
+                [:used-frames (:active-frame @state)]
+                (some identity
+                      (sequence (comp cat cat)
+                                ((:slices @state) (:active-frame @state)))))
+         (swap! state assoc
+                :active-frame line
+                :active-line 0
+                :active-chan 0
+                :active-attr 0))
        (prn [id line chan attr]))))
   (swap! asdf assoc :listeners-initialized? true))
 
 (r/render-component
-  [:div.container
-   ;; these derefs are a bug, actually
-   [ui/main-ui (:schema @context) (:slices @context) context player]]
+  [ui/main-ui (:scheme @state) (:slices @state) state player]
   (.getElementById js/document "app"))
 
 (defn on-js-reload []
@@ -61,23 +79,17 @@
     (.addEventListener
       js/window
       "keydown"
-      #(k/handle-keypress! % context))
+      #(k/handle-keypress! % state))
 
     (.addEventListener
       js/window
       "mousedown"
       (fn [ev] (let [id (.-id (.-target ev))
-             [line chan attr] (map js/parseInt (.split id "-"))]
-         (when (every? #(number? %) [line chan attr])
-           (swap! context assoc
-                  :active-line  line
-                  :active-chan  chan
-                  :active-attr  attr))
-         (prn [id line chan attr]))))
-    (swap! asdf assoc :listeners-initialized? true))
-
-  (r/render-component
-    [:div.container
-     ;; these derefs are a bug, actually
-     [ui/main-ui (:schema @context) (:slices @context) context player]]
-    (.getElementById js/document "app")))
+                     [line chan attr] (map js/parseInt (.split id "-"))]
+                 (when (every? #(number? %) [line chan attr])
+                   (swap! state assoc
+                          :active-line  line
+                          :active-chan  chan
+                          :active-attr  attr))
+                 (prn [id line chan attr]))))
+    (swap! asdf assoc :listeners-initialized? true)))

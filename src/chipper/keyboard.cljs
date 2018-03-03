@@ -1,6 +1,8 @@
 ;; This is a big mess of spaghetti. yum yum yum
+;; thought: the state really shouldn't have to hold a bigass empty vec
 (ns chipper.keyboard
-  (:require [chipper.utils :refer [bounded-add]]
+  (:require [chipper.chips :as c]
+            [chipper.utils :refer [bounded-add]]
             [cljs.core.async :refer [put! pipe chan close! timeout]]
             [goog.events :as events]))
 
@@ -24,12 +26,9 @@
   :edit-octave
   {:Equal      :up-octave
    :Minus      :down-octave
-   :Space      :up-octave
-   :ShiftSpace :down-octave
-   :Slash      :up-octave
-   :Period     :down-octave
-   :ShiftEqual :swap-up-octave
-   :ShiftMinus :swap-down-octave}})
+   :ShiftEqual :up-octave}
+  :edit-global
+  {:Space      :play-pause}})
 
 (def insert-dispatch-mappings
   (merge-with
@@ -45,10 +44,9 @@
         :KeyH :A   :ShiftKeyH :A# :KeyU :A#
         :KeyJ :B
         :KeyX :off
-        :Backspace :backspace}
+        :Backspace :delete-above}
 
-       ;; {:Digit0 :Digit0...} yeah, this is a really fucking bad hack my god
-       ;; but i mean... it's static! so...
+       ;; {:Digit0 :Digit0...} yeah, this is a really bad hack my god
        (apply hash-map
               (mapcat identity
                       (for [n (range 10)
@@ -60,16 +58,12 @@
     conj
     common-mappings
     {:relative-movement
-     {:KeyJ :down-jump
-      :KeyK :up-jump
+     {:KeyJ :down-line
+      :KeyK :up-line
       :KeyH :left-attr
       :KeyL :right-attr
-
-      :KeyW :right-chan
-      :KeyB :left-chan
-
-      :ShiftBracketRight :down-beat
-      :ShiftBracketLeft  :up-beat}
+      :KeyW :down-jump
+      :KeyB :up-jump}
 
      :absolute-movement
      {:ShiftKeyG   :last-line
@@ -78,7 +72,18 @@
       :Digit0      :first-chan}
 
      :edit-attr
-     {:KeyX :delete}}))
+     {:KeyX      :delete
+      :Backspace :delete-in-place}
+
+     :edit-bpm
+     {:Period      :tempo-up
+      :Comma       :tempo-down
+      :ShiftPeriod :tempo-up-big
+      :ShiftComma  :tempo-down-big}
+
+     :edit-global
+     {:ShiftBracketRight :forward-frame
+      :ShiftBracketLeft  :back-frame}}))
 
 (def internal-values
   (merge
@@ -92,14 +97,15 @@
      :down-beat    [4 nil 0] :up-beat    [-4 nil 0]
 
      ;; delete note
-     ;; :code     [[note octave] pre-move post-move]
-     :off       [[:off nil] nil :down-line]
-     :delete    [[nil nil] nil :up-line]
-     :backspace [[nil nil] :up-line :up-line]
+     ;; :code         [[note octave] pre-move post-move]
+     :off             [[:off nil] nil :down-line]
+     :delete          [nil nil nil]
+     :delete-in-place [nil nil :up-line]
+     :delete-above    [nil :up-line :up-line]
 
      :oh-god
-     {:delete [nil nil :up-line]
-      :backspace [nil :up-line :up-line]}}
+     {:delete [nil nil nil]
+      :delete-above [nil :up-line :up-line]}}
 
     ;; {:Digit0 0..:Digit9 9}
     (apply hash-map
@@ -107,101 +113,142 @@
                    (for [n (range 10)] [(keyword (str "Digit" n)) n])))))
 
 (def -movement-keys
-  #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab})
+  #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab :Backspace})
 
 
 ; ---------------------------------------------------------------------
 ; HANDLERS ------------------------------------------------------------
 ; ---------------------------------------------------------------------
 (defn absolute-movement-handler
-  [internal-key _ context]
+  [internal-key _ state]
   (let [position (case internal-key
-                   :last-line  [(dec (count (:slices @context)))]
+                   :last-line  [(dec (count (:slices @state)))]
                    :first-line [0]
                    :first-chan [nil 0 0]
-                   :last-chan  [nil (dec (count (:schema @context)))])]
+                   :last-chan  [nil (dec (count (:scheme @state))) 0])]
     {:set-position position}))
 
 (defn relative-position
   "Takes movement code (:down-line, :down-beat, etc), returns vector of
   next position."
-  [internal-key [line chan attr :as active-position] context]
-  (let [state         @context
+  [internal-key [line chan attr :as active-position] state]
+  (let [state-         @state
         move-vector   (get internal-values internal-key internal-key)
         [dline
          dchan        ;; this is really fuckin savage
          dattr]       (case move-vector
-                        :up-jump [(- (:jump-size state)) 0 0]
-                        :down-jump [(:jump-size state) 0 0]
+                        :up-jump   [(let [n (mod (:active-line state-) 2)]
+                                     (if (zero? n) -2 (- n)))
+                                     0 0]
+                        :down-jump [(- 2 (mod (:active-line state-) 2)) 0 0]
                         (or move-vector [0 0 0]))
         ;; since dattr is signed, dchan can just take its value when crossing over
         next-attr-    (+ attr dattr)
         dchan         (or dchan
                           (if (or (neg? next-attr-) (> next-attr- 2)) dattr 0))
-        next-line     (bounded-add (dec (count (:slices state))) line dline)
-        next-chan     (bounded-add (dec (count (:schema state))) chan dchan)
-        next-attr     (mod next-attr- 3)]
+        ;; next-line     (bounded-add (dec (count (:slices state))) line dline)
+        ;; next-chan     (bounded-add (dec (count (:scheme state))) chan dchan)
+        ;; decided to show one frame at a time and have only 4 channels
+        next-line     (bounded-add 31 line dline)
+        next-chan     (bounded-add 3 chan dchan)
+        next-attr     (if (or (= next-chan 0) (= next-chan 3))
+                        (bounded-add 2 attr dattr)
+                        (mod next-attr- 3))]
     [next-line next-chan next-attr]))
 
 (defn relative-movement-handler
-  [internal-key active-position context]
-  (let [next-position (relative-position internal-key active-position context)]
+  [internal-key active-position state]
+  (let [next-position (relative-position internal-key active-position state)]
     {:set-position next-position}))
 
 ;; refactorable
 (defn edit-note-handler
-  [internal-key [line chan attr :as active-position] context]
-  (let [[note- pre-move post-move-] (get internal-values internal-key)
+  [internal-key [line chan attr :as active-position] state]
+  (let [[note- pre-move post-move- :as found?] (get internal-values internal-key)
         ;; this or might be unnecessary
-        note (or note- [internal-key (:octave @context)])
-        post-move (or post-move- :down-jump)
-        pre-move-position (relative-position pre-move active-position context)
-        post-move-position (relative-position post-move active-position context)]
+        note (if found? note- [internal-key (:octave @state)])
+        post-move (or post-move- :down-line)
+        pre-move-position (relative-position pre-move active-position state)
+        post-move-position (relative-position post-move active-position state)]
+    ; (prn (str "note- " note- "note " note))
     {:set-attr [note (or pre-move-position active-position)]
      :set-position post-move-position}))
 
 ;; refactorable
 (defn edit-other-attr-handler
   "Only acts on numbers right now, which is... just as well."
-  [internal-key active-position context]
+  [internal-key active-position state]
   (let [[value- pre-move post-move-] (get-in internal-values [:oh-god internal-key])
         ;; this is intentional-------------v
         value (or value-
                   (when-let [spaghetti (get internal-values internal-key)]
                     (when-not (vector? spaghetti) spaghetti)))
-        post-move (or post-move- :down-jump)
-        pre-move-position (relative-position pre-move active-position context)
-        post-move-position (relative-position post-move active-position context)]
+        post-move (or post-move- :down-line)
+        pre-move-position (relative-position pre-move active-position state)
+        post-move-position (relative-position post-move active-position state)]
+    ; (prn (str "post move" post-move "post-move-" post-move- "internal" internal-key))
     {:set-attr [value pre-move-position]
      :set-position post-move-position}))
 
 (defn edit-attr-handler
-  [internal-key [_ __ attr :as active-position] context]
-  (prn attr)
+  [internal-key [_ __ attr :as active-position] state]
+  ; (prn attr)
   (let [handler (if (zero? attr) edit-note-handler edit-other-attr-handler)]
-    (handler internal-key active-position context)))
+    (handler internal-key active-position state)))
 
-(defn edit-octave-handler [octave _ context]
-  (let [current (:octave @context)
+(defn edit-octave-handler [octave _ state]
+  (let [current (:octave @state)
         doctave (case octave
                   :up-octave (if (> 12 current) 1 0)
                   :down-octave (if (pos? current) -1 0)
                   0)]
     {:set-octave (+ current doctave)}))
 
-(defn maybe-change-mode! [keycode context]
+(defn edit-bpm-handler [])
+
+(defn reset-cursor! [state]
+  (swap! state assoc
+         :active-line 0
+         :active-chan 0
+         :active-attr 0))
+
+(defn check-set-frame-use [state]
+  ; (prn (str "frame edited" (:frame-edited @state)))
+  (when (:frame-edited @state)
+    (swap! state assoc-in
+           [:used-frames (:active-frame @state)]
+           (some identity
+                 (sequence (comp cat cat)
+                           ((:slices @state) (:active-frame @state)))))
+    (swap! state assoc
+           :frame-edited nil)))
+
+(defn edit-global-handler [internal-key _ state]
+  (case internal-key
+    :play-pause (c/play-track state (:player @state))
+    ;; TODO refactor all the position resets
+    :forward-frame (do (check-set-frame-use state)
+                       (reset-cursor! state)
+                       (swap! state assoc
+                              :active-frame (min 31 (inc (:active-frame @state)))))
+    :back-frame (do (check-set-frame-use state)
+                    (reset-cursor! state)
+                    (swap! state assoc
+                           :active-frame (max 0 (dec (:active-frame @state))))))
+  nil)  ; returning nil skips directives
+
+(defn maybe-change-mode! [keycode state]
   (if (= :Escape keycode)
-    (do (swap! context assoc :mode :normal) nil)
-    (if-let [mode (and (= :normal (:mode @context))
+    (do (swap! state assoc :mode :normal) nil)
+    (if-let [mode (and (= :normal (:mode @state))
                        (get change-mode-mappings keycode))]
-      (do (swap! context assoc :mode mode) nil)
+      (do (swap! state assoc :mode mode) nil)
       keycode)))
 
 ; ---------------------------------------------------------------------
 ; DISPATCHING ---------------------------------------------------------
 ; ---------------------------------------------------------------------
 ;; TODO needs reorganization
-
 (defn dispatch-info
   "Returns the dispatch key, internal key, and internal value for the keycode"
   [keycode dispatch-mappings]
@@ -221,41 +268,43 @@
 (defn translate-keycode [ev]
   "Takes keydown event and returns keycode as keyword, e.g., :KeyI. If
   SHIFT is held, concats with Shift first, e.g., :ShiftKeyI."
-  (if (.-shiftKey ev)
-    (keyword (str "Shift" (.-code ev)))
-    (keyword (.-code ev))))
+  (keyword (str (when (.-ctrlKey ev) "Ctrl")
+                (when (.-shiftKey ev) "Shift")
+                (.-code ev))))
 
-(defn set-attr! [directive context]
+(defn set-attr! [directive state]
   (when (:set-attr directive) ;; when-let doesn't work for destructuring
     (let [[value position] (:set-attr directive)
-          [line chan attr] position]
-      (swap! context update-in [:slices line chan]
+          [line chan attr] position
+          frame (:active-frame @state)]
+      (swap! state update-in [:slices frame line chan]
              #(assoc % attr value)))))
 
-(defn set-octave! [directive context]
+(defn set-octave! [directive state]
   (when-let [octave (:set-octave directive)]
-    (swap! context assoc :octave octave)))
+    (swap! state assoc :octave octave)))
 
-(defn set-position! [directive context]
+(defn set-position! [directive state]
   (let [[line chan attr] (:set-position directive)]
-    (swap! context assoc
-           :active-line (or line (:active-line @context))
-           :active-chan (or chan (:active-chan @context))
-           :active-attr (or attr (:active-attr @context)))))
+    (swap! state assoc
+           :active-line (or line (:active-line @state))
+           :active-chan (or chan (:active-chan @state))
+           :active-attr (or attr (:active-attr @state)))))
 
-(defn active-position [context]
-  (let [state @context]
-    [(:active-line state) (:active-chan state) (:active-attr state)]))
+(defn active-position [state]
+    [(:active-line @state) (:active-chan @state) (:active-attr @state)])
 
+;; TODO filter key inputs first? i'm a level too deep with the dispatch maps
+;; TODO fuck the modes we really don't need that shit
 (defn handle-keypress!
   "Translates event keycode into directives, then acts on the directives."
-  [ev context]
+  [ev state]
   (when-let [keycode (-> ev
                          (prevent-movement!)
                          (translate-keycode)
-                         (maybe-change-mode! context))]
-    (let [active-position   (active-position context)
-          dispatch-mappings (case (:mode @context)
+                         (maybe-change-mode! state))]
+    (let [active-position   (active-position state)
+          dispatch-mappings (case (:mode @state)
                               :normal normal-dispatch-mappings
                               :edit insert-dispatch-mappings)
           [dispatch-key
@@ -265,14 +314,16 @@
                               :absolute-movement absolute-movement-handler
                               :edit-attr         edit-attr-handler
                               :edit-octave       edit-octave-handler
+                              :edit-global       edit-global-handler
                               (constantly nil))
-          directives        (handler internal-key active-position context)]
+          directives        (handler internal-key active-position state)]
       (prn dispatch-key)
       (prn directives)
-      ;; this feels temporary but deep down i know i'm just going to keep it
-      (set-attr! directives context)
-      (set-octave! directives context)
-      (set-position! directives context))))
+      (when directives  ;; this check makes frame-jumping slightly faster
+        (swap! state assoc :frame-edited true))
+      (set-attr! directives state)
+      (set-octave! directives state)
+      (set-position! directives state))))
 
 ;; TODO this needs to go somewhere else (should the chan also handle mousdown?)
 (defn init-keycode-chan! []

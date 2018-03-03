@@ -82,7 +82,7 @@
   (.disconnect (:source channel))
   channel)
 
-(defn set-note! [channel & freq-args]
+(defn set-frequency! [channel & freq-args]
   (let [frequency (apply n/frequency freq-args)
         source (:source channel)]
     ;; bug in chrome; can't just set directly (causes gliss effect)
@@ -94,6 +94,7 @@
 (defn set-gain! [channel gain-digit]
   (let [normalized (u/normalize-digit gain-digit)
         gain (:gain channel)]
+    (println gain)
     (.setValueAtTime (.-gain gain)
                      normalized
                      (.-currentTime (:context channel)))))

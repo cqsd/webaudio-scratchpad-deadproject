@@ -1,9 +1,14 @@
-/* TODO schema and button should have same height */
+/* TODO scheme and button should have same height */
 html, body {
     background: #4f688e;
     color: #e0ecff;
-    font-size: 12pt;
+    font-size: 11pt;
     font-family: 'Inconsolata', monospace;
+    height: 100%;
+}
+
+body {
+    margin: 0;
 }
 
 pre {
@@ -13,29 +18,33 @@ pre {
 #header {
     font-size: 16pt;
     text-align: center;
-    margin: 0.25em;
-    margin-top: 1em;
+    margin: 0;
+    margin-top: -32pt; /* oh my god */
+    margin-bottom: 0.5em;
 }
 
-#app {
-    margin-top: 1em;
+#bottom-padding {
+    margin: 16pt;
+}
+
+.flex-container {
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flex-pad {
 }
 
 #loading-text {
     text-align: center;
-}
-
-.container {
-    display: -webkit-flex;
-    display: flex;
-    width: 100%;
-    overflow: hidden;
-    -webkit-touch-callout: none;
-    -webkit-user-select:   none;
-    -khtml-user-select:    none;
-    -moz-user-select:      none;
-    -ms-user-select:       none;
-    user-select:           none;
 }
 /* ---------- TRACKER ---------- */
 #main-ui {
@@ -49,19 +58,18 @@ pre {
     font-family: monospace;
 
     width: auto;
-    max-width: 75%;
-    margin: auto;
 }
 
 #tracker {
     cursor: default;
     border: 1px solid #e0ecff;
     margin: 0 auto;
+    padding: 0.2em;
 
     /* border-radius: 0 5px 0 0; */
 }
 
-#schema {
+#scheme {
     border-bottom: 1px solid #e0ecff;
     margin-top:    0.52em;
     margin-bottom: 0;
@@ -70,16 +78,36 @@ pre {
 
 #slices {
     padding-top: 0.45em;
-    max-height:  72vh;
+    /* decided to show one 'frame' at a time */
+    /*
+    */
+    max-height:  75vh;
     overflow:    scroll;
 }
 
 #modeline {
+    display: flex;
+    flex-wrap: wrap;
+
     border-top:    1px solid #e0ecff;
     margin-top:    0;
     margin-bottom: 0.52em;
     padding-top:   0.5em;
 }
+
+.tempo-input {
+    flex: 1;
+}
+
+/*
+.tempo-input input {
+    -webkit-appearance: none;
+    -moz-appearance:    none;
+    -ms-appearance:     none;
+    -o-appearance:      none;
+    appearance:         none;
+}
+*/
 
 .active-line {
     background: #e0ecff;
@@ -92,25 +120,33 @@ pre {
 }
 
 .active-attr { background: #f4bf42; }
+.af { color: black; }
 .edit { background: pink; }
 
 .slice { margin: 0; }
-.slice:hover { background: #6d9be0; }
+/*.slice:hover { background: #6d9be0; }*/
 .slice:last-child { margin-bottom: 0.3em; }
 
-span.pipe-sep:after { content: "|"; }
-span.pipe-sep:last-child:after { content: ""; }
+span.ps:after { content: "|"; }
+span.ps:first-child:before { content: "|"; }
+span.ps:last-child:after { content: ""; }
 
 /* ---------- CONTROLS ---------- */
 .controls {
+    /*
     height:-moz-fit-content;
     height:-webkit-fit-content;
     height:fit-content;
+    */
 
     border: 1px solid #e0ecff;
 
     background: #4f688e;
     color: #e0ecff;
+}
+
+.control-vertical-fill {
+    height: 100%;
 }
 
 .button {
@@ -136,12 +172,14 @@ span.pipe-sep:last-child:after { content: ""; }
     color: #6d9be0;
 }
 
+/*
 #main-controls {
     border-radius: 5px 0 0 5px;
     border-right: none;
 }
+*/
 
-#add-channel {
+#main-controls {
     border-radius: 0 5px 5px 0;
     border-left: none;
 }
@@ -161,4 +199,10 @@ span.pipe-sep:last-child:after { content: ""; }
 div.horizontal-spacer {
     width: 100%;
     float: left;
+}
+
+@media (max-height: 700px) {
+    #header, #bottom-padding {
+        display: none;
+    }
 }

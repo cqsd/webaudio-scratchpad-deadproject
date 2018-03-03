@@ -42,5 +42,5 @@ TODO: octave changes, volume controls
 
 #### Progress milestones:
 
-Jan-18: selection is unfucked, still needs some optimization:
-![selection is unfucked](milestones/jan-18.png)
+18-Jan-2017: selection is better, still needs some optimization:
+![selection is better](milestones/jan-18.png)

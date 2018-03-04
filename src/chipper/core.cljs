@@ -9,29 +9,29 @@
 (def player
   (r/atom
     {:audio-context (create-audio-context)
-     ;; I forgot, but I think :chip is a vec of oscillators?
-     ;; If it exists, it's used. If not, it's created on play
      :chip nil
+     :key-chip nil
+     :track-chan nil
      :scheme [:square :square :triangle :sawtooth]}))
 
 (def state
   (r/atom
-    {:scheme (:scheme @player) ;; spaghetti
+    {:scheme (:scheme @player) ; spaghetti; TODO find where used and point
+                               ; to :player :scheme instead
      :slices (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil]))))))
      :active-line 0
      :active-chan 0
      :active-attr 0
      :active-frame 0
-     :used-frames (vec (repeat 32 nil))
+     :used-frames (vec (repeat 32 nil)) ; for indicating on the right
      :octave 4
-     :jump-size 1 ;; add user option
-     :bpm 100     ;; add user option
+     :bpm 100
      :mode :normal
-     :player player}))
+     :player player})) ; spaghetti
 
-(defonce asdf (atom {:listeners-initialized? nil}))
+(defonce listeners-initialized? (atom nil))
 
-(when-not (:listeners-initialized? @asdf)
+(when-not @listeners-initialized?
   ;; Is there a better way to do this? not that this is bad, since this is a strictly
   ;; defined set of events, but...
   (.addEventListener
@@ -63,19 +63,16 @@
                       (sequence (comp cat cat)
                                 ((:slices @state) (:active-frame @state)))))
          (swap! state assoc
-                :active-frame line
-                :active-line 0
-                :active-chan 0
-                :active-attr 0))
+                :active-frame line))
        (prn [id line chan attr]))))
-  (swap! asdf assoc :listeners-initialized? true))
+  (reset! listeners-initialized? true))
 
 (r/render-component
   [ui/main-ui (:scheme @state) (:slices @state) state player]
   (.getElementById js/document "app"))
 
 (defn on-js-reload []
-  (when-not (:listeners-initialized? @asdf)
+  (when-not @listeners-initialized?
     (.addEventListener
       js/window
       "keydown"
@@ -92,4 +89,4 @@
                           :active-chan  chan
                           :active-attr  attr))
                  (prn [id line chan attr]))))
-    (swap! asdf assoc :listeners-initialized? true)))
+    (reset! listeners-initialized? true)))

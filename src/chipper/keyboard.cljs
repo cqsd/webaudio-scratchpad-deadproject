@@ -1,7 +1,13 @@
-;; This is a big mess of spaghetti. yum yum yum
-;; thought: the state really shouldn't have to hold a bigass empty vec
+;; this needs a HUGE refactor
+;; handlers (misnamed) should return a map {:set-<key> <value> . . .}
+;; then a set-<name>! function (name is the category of value) takes
+;; in that map to alter state
+;; TODO set-global doesn't conform
+;; TODO set-octave can merge into set-global
+;; honestly a lot of these should be merged
 (ns chipper.keyboard
   (:require [chipper.chips :as c]
+            [chipper.utils :as u]
             [chipper.utils :refer [bounded-add]]
             [cljs.core.async :refer [put! pipe chan close! timeout]]
             [goog.events :as events]))
@@ -10,25 +16,36 @@
 ; MAPPINGS -- Maybe these should be moved into a config file? ---------
 ; ---------------------------------------------------------------------
 (def change-mode-mappings
-  ;:Escape    :normal   ;; implicit
-  {:KeyI      :edit
-   :KeyV      :v-block  ;; not implemented
-   :ShiftKeyV :v-line}) ;; non-standard
+  ; :Escape    :normal   ;; implicit
+  {:KeyI      :edit})
+  ; :KeyV      :v-block  ;; not implemented
+  ; :ShiftKeyV :v-line}) ;; non-standard
 
 (def common-mappings
   {:relative-movement
-   {:ArrowDown  :down-line
-    :ArrowUp    :up-line
-    :ArrowLeft  :left-attr
-    :ArrowRight :right-attr
-    :Tab        :right-chan
-    :ShiftTab   :left-chan}
+   {:ArrowDown    :down-line
+    :ArrowUp      :up-line
+    :Enter        :down-line
+    :ShiftEnter   :up-line
+    :ArrowLeft    :left-attr
+    :ArrowRight   :right-attr
+    :Tab          :right-chan
+    :ShiftTab     :left-chan
+    :BracketRight :right-chan
+    :BracketLeft  :left-chan}
+
+  :edit-attr
+  {:Backspace :delete-and-move-up}
+
   :edit-octave
   {:Equal      :up-octave
    :Minus      :down-octave
    :ShiftEqual :up-octave}
+
   :edit-global
-  {:Space      :play-pause}})
+  {:ShiftBracketRight :forward-frame
+   :ShiftBracketLeft  :back-frame
+   :Space      :play-pause}})
 
 (def insert-dispatch-mappings
   (merge-with
@@ -44,6 +61,7 @@
         :KeyH :A   :ShiftKeyH :A# :KeyU :A#
         :KeyJ :B
         :KeyX :off
+        :ShiftKeyX :stop
         :Backspace :delete-above}
 
        ;; {:Digit0 :Digit0...} yeah, this is a really bad hack my god
@@ -68,22 +86,18 @@
      :absolute-movement
      {:ShiftKeyG   :last-line
       :KeyG        :first-line
-      :ShiftDigit4 :last-chan
-      :Digit0      :first-chan}
+      :ShiftDigit4 :last-line
+      :Digit0      :first-line}
 
      :edit-attr
-     {:KeyX      :delete
-      :Backspace :delete-in-place}
+     {:KeyX      :delete}
 
      :edit-bpm
      {:Period      :tempo-up
       :Comma       :tempo-down
       :ShiftPeriod :tempo-up-big
       :ShiftComma  :tempo-down-big}
-
-     :edit-global
-     {:ShiftBracketRight :forward-frame
-      :ShiftBracketLeft  :back-frame}}))
+}))
 
 (def internal-values
   (merge
@@ -96,15 +110,16 @@
      :right-chan   [0 1 0]   :left-chan  [0 -1 0]
      :down-beat    [4 nil 0] :up-beat    [-4 nil 0]
 
-     ;; delete note
-     ;; :code         [[note octave] pre-move post-move]
-     :off             [[:off nil] nil :down-line]
-     :delete          [nil nil nil]
-     :delete-in-place [nil nil :up-line]
-     :delete-above    [nil :up-line :up-line]
+     ;; delete note or turn off, format is:
+     ;; :code [[note octave] pre-move post-move]
+     :off                [[:off nil] nil :down-line]
+     :stop               [[:stop nil] nil :down-line]
+     :delete             [nil nil nil]
+     :delete-above       [nil :up-line :up-line]
+     :delete-and-move-up [nil nil :up-line]
 
      :oh-god
-     {:delete [nil nil nil]
+     {:delete       [nil nil nil]
       :delete-above [nil :up-line :up-line]}}
 
     ;; {:Digit0 0..:Digit9 9}
@@ -151,7 +166,8 @@
         ;; decided to show one frame at a time and have only 4 channels
         next-line     (bounded-add 31 line dline)
         next-chan     (bounded-add 3 chan dchan)
-        next-attr     (if (or (= next-chan 0) (= next-chan 3))
+        next-attr     (if (or (and (= chan 0) (neg? dattr))
+                              (and (= chan 3) (pos? dattr)))
                         (bounded-add 2 attr dattr)
                         (mod next-attr- 3))]
     [next-line next-chan next-attr]))
@@ -165,8 +181,7 @@
 (defn edit-note-handler
   [internal-key [line chan attr :as active-position] state]
   (let [[note- pre-move post-move- :as found?] (get internal-values internal-key)
-        ;; this or might be unnecessary
-        note (if found? note- [internal-key (:octave @state)])
+        note (if found? note- [internal-key (:octave @state)])  ; XXX bad
         post-move (or post-move- :down-line)
         pre-move-position (relative-position pre-move active-position state)
         post-move-position (relative-position post-move active-position state)]
@@ -204,14 +219,6 @@
                   0)]
     {:set-octave (+ current doctave)}))
 
-(defn edit-bpm-handler [])
-
-(defn reset-cursor! [state]
-  (swap! state assoc
-         :active-line 0
-         :active-chan 0
-         :active-attr 0))
-
 (defn check-set-frame-use [state]
   ; (prn (str "frame edited" (:frame-edited @state)))
   (when (:frame-edited @state)
@@ -223,19 +230,26 @@
     (swap! state assoc
            :frame-edited nil)))
 
+;; XXX these handlers aren't supposed to alter state, that's what the
+;; set-<name>! functions are for
 (defn edit-global-handler [internal-key _ state]
   (case internal-key
     :play-pause (c/play-track state (:player @state))
     ;; TODO refactor all the position resets
     :forward-frame (do (check-set-frame-use state)
-                       (reset-cursor! state)
                        (swap! state assoc
                               :active-frame (min 31 (inc (:active-frame @state)))))
     :back-frame (do (check-set-frame-use state)
-                    (reset-cursor! state)
                     (swap! state assoc
                            :active-frame (max 0 (dec (:active-frame @state))))))
   nil)  ; returning nil skips directives
+
+(defn edit-bpm-handler [internal-key _ state]
+  (let [dbpm (internal-key
+               {:tempo-up    1 :tempo-up-big    10
+                :tempo-down -1 :tempo-down-big -10})]
+    (prn (str "current bpm " (:bpm @state)))
+    {:set-bpm (bounded-add 255 dbpm (:bpm @state))}))
 
 (defn maybe-change-mode! [keycode state]
   (if (= :Escape keycode)
@@ -284,6 +298,12 @@
   (when-let [octave (:set-octave directive)]
     (swap! state assoc :octave octave)))
 
+(defn set-bpm! [directive state]
+  (when-let [bpm (:set-bpm directive)]
+    (swap! state assoc :bpm bpm)))
+
+;; XXX these set-<name>! things could just be macros, or keyword-manipulating
+;; functions
 (defn set-position! [directive state]
   (let [[line chan attr] (:set-position directive)]
     (swap! state assoc
@@ -313,8 +333,10 @@
                               :relative-movement relative-movement-handler
                               :absolute-movement absolute-movement-handler
                               :edit-attr         edit-attr-handler
+                              ; edit-global can be combined into edit-octave
                               :edit-octave       edit-octave-handler
                               :edit-global       edit-global-handler
+                              :edit-bpm          edit-bpm-handler
                               (constantly nil))
           directives        (handler internal-key active-position state)]
       (prn dispatch-key)
@@ -323,7 +345,8 @@
         (swap! state assoc :frame-edited true))
       (set-attr! directives state)
       (set-octave! directives state)
-      (set-position! directives state))))
+      (set-position! directives state)
+      (set-bpm! directives state))))
 
 ;; TODO this needs to go somewhere else (should the chan also handle mousdown?)
 (defn init-keycode-chan! []

@@ -1,7 +1,4 @@
-;; TODO big this needs to get merged into audio?
-;; or some audio shit needs to split into this
-;; or... actually, just rename audio to webaudio
-;; and the apparent mixing of concerns suddenly works
+;; this needs a HUGE refactor
 (ns chipper.chips
   (:require [chipper.audio :as a]
             [chipper.utils :as u]
@@ -47,32 +44,59 @@
               (:channels chip)
               slice)))
 
+(defn stop-track!
+  "Close the track channel and disconnect the chip."
+  [state player]
+  (do (when-let [track (:track-chan @player)]
+        (close! track))
+      (chip-off! (:chip @player))
+      (swap! player assoc :track-chan nil)))
+
 ;; TODO XXX FIXME this can be refactored with delayed-coll-chan
 ;; in fact, a yank-put is basically all that's needed
 ;; slices are [note octave gain effect]
 ;; TODO change this to use setValueAtTime (or whatever it is) instead of
 ;; delay-based consumption because when browser is not focused, timeouts
 ;; only fire 1x per second at max (applies to all major browsers i think)
-;; XXX only reason to do this in a go-loop is because it blocks otherwise
-;; but the better way to do this is to just do a bunch of setfrequencyattime
-;; at the beginning
+;; reason to do this in a go-loop is because it blocks otherwise
 (defn play-track
   "Repeatedly consume slices (at a set interval) until the sequence of slices
   is empty."
-  [state- player-] ;; TODO XXX FIXME start here next time
-  ;; TODO need to clear all the chip attributes before playback
-  (prn "Playing!")
-  (let [state @state-
-        player @player-
-        interval (/ 15000 (:bpm state))
-        chip- (:chip player)
-        chip (if chip- chip- (create-chip! (:scheme state) (:audio-context player)))
-        track (u/delayed-coll-chan ((:slices state) 0) interval)]
-    (chip-off! chip)
-    (swap! player- assoc :chip chip)
-    (go-loop []
-      (when-let [slice (<! track)]
-        (print (apply str (map first slice))) ;; TODO derete
-        (set-chip-attrs! chip slice)
-        (recur))
-      (chip-off! chip))))
+  ([state player]
+   (let [interval (/ 15000 (:bpm @state))
+         ;; ok this enumerate is the hack for changing frame numbers as we go
+         ;; god damn. We do a drop to start at the current frame
+         track (u/delayed-chan
+                 (apply concat ; generate [[frame line slice]...]
+                        (for [[frame i] (u/enumerate (drop (:active-frame @state)
+                                                           (:slices @state))
+                                                     (:active-frame @state))]
+                          (for [[slice j] (u/enumerate frame)] [i j slice])))
+                 interval)]
+     (play-track state player track)))
+
+  ([state player track]
+  (if-not (:track-chan @player)
+    (let [state- @state
+          player- @player
+          chip (if-let [chip- (:chip player-)]
+                 chip-
+                 (create-chip! (:scheme state-) (:audio-context player-)))]
+      (chip-off! chip)
+      (swap! player assoc :chip chip :track-chan track)
+      (go-loop []
+               (when-let [[frame line slice] (<! track)]  ; <! is nil on closed chan
+                 (prn (str "slice id " frame " " line))
+                 (swap! state assoc
+                        :active-frame frame
+                        :active-line line)
+                 (let [notes (filter identity (map (comp first first) slice))]
+                   (if (some (partial = :stop) notes)
+                     (stop-track! state player)
+                     (do (set-chip-attrs! chip slice)
+                         (recur)))))
+               (stop-track! state player)))
+    ;; see all these repeated stop-track! ?
+    ;; this function is misnamed; it should be called play-pause-track
+    ;; and it needs a refactor but so does everything else in this project
+    (stop-track! state player))))

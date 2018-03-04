@@ -86,17 +86,16 @@ pre {
 }
 
 #modeline {
-    display: flex;
-    flex-wrap: wrap;
-
     border-top:    1px solid #e0ecff;
     margin-top:    0;
     margin-bottom: 0.52em;
     padding-top:   0.5em;
 }
 
-.tempo-input {
-    flex: 1;
+.flex-spread {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
 }
 
 /*
@@ -109,19 +108,30 @@ pre {
 }
 */
 
-.active-line {
-    background: #e0ecff;
-    color: black;
-}
-
 .attr:hover {
     color: black;
     background: white;
 }
 
+.stopline {
+    background: #1f283e;
+}
+.bright-text { color: #f4bf42; }
 .active-attr { background: #f4bf42; }
 .af { color: black; }
 .edit { background: pink; }
+.selected {
+    color: black;
+    background: #e0ecff;
+}
+
+.active-line {
+    background: #e0ecff;
+    color: black;
+}
+.active-line .bright-text {
+    color: black;
+}
 
 .slice { margin: 0; }
 /*.slice:hover { background: #6d9be0; }*/
@@ -186,15 +196,6 @@ span.ps:last-child:after { content: ""; }
 
 
 /* ---------- MISCELLANEOUS ---------- */
-
-.bright-text {
-    color: #f4bf42;
-}
-
-.selected {
-    color: black;
-    background: #e0ecff;
-}
 
 div.horizontal-spacer {
     width: 100%;

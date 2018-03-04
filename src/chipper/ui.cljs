@@ -20,7 +20,7 @@
             (gs/format " %-11s" (name instrument))))])
 
 (defn modeline [& mode]
-  [:pre#modeline
+  [:pre#modeline.flex-spread
     (for [[stat n] (utils/enumerate mode)
           :let [id (str "modeline-" n)]]
       ^{:key id}
@@ -30,11 +30,12 @@
 (defn channel
   "One line of attributes for a single channel."
   [[note- gain effect] chan-id chan-active? state]
-  (let [[note octave] note-
-        note        (case note
+  (let [[note-- octave] note-
+        note        (case note--
                       :off "X"
+                      :stop "S"
                       nil  "-"
-                      (name note))
+                      (name note--))
         octave      (or octave "-")
         attr-strs   [(str " " note (when (= 1 (count note)) "-") octave " ")
                      (if gain   (str " " gain " ")   " - ")
@@ -50,9 +51,10 @@
                  mode (when (and attr-active? (= mode- :edit)) mode-)]]
        ^{:key attr-id}
        [:span {:id attr-id
-               :class (if attr-active?
-                        (or mode :active-attr)
-                        :attr)}
+               :class (str (name (if attr-active?
+                                   (or mode :active-attr)
+                                   :attr))
+                           (when (= note-- :stop) " stopline"))}
         s])])) ; <-- it's part of the span
 
 ;; XXX this is horrible
@@ -66,7 +68,7 @@
 (defn line-hex [hex bright?]
   [:span [:span
    {:class (when bright? :bright-text)}
-   (str " " hex " ")] "|"])  ; savage
+   (str " " hex " ")] ""])  ; savage
 
 (defn frame-hex [line-number hex state]
   [:span.attr
@@ -82,8 +84,8 @@
   [slice line-id line-number line-active? state]
   (let [hex (number->hex line-number)
         bright? (zero? (mod line-number 4))]
-    [:pre {:id line-id
-           :class (if line-active? "slice active-line" :slice)}
+    [:pre.slice {:id line-id}
+     [:span      {:class (when line-active? :active-line)}
      [line-hex hex bright?]
      (let [active-chan (if line-active?
                          (:active-chan @state)
@@ -93,7 +95,7 @@
                                      (= chan-number active-chan))
                    chan-id (str line-number "-" chan-number)]]
          ^{:key chan-id}
-         [channel attrs chan-id chan-active? state]))
+         [channel attrs chan-id chan-active? state]))]
      [frame-hex line-number hex state]]))
 
 ;; need to refactor some shit so this doesn't need to take state AND player
@@ -121,7 +123,6 @@
                (= line-number active-line)
                state]))]
     [modeline
-     (str " " (name (:mode @state))
-          " " (str "octave" (:octave @state)))]]
-   ; [main-controls state player]
-   ])
+     (str " " (name (:mode @state)))
+     (str (str "bpm" (:bpm @state) " ")
+          (str "octave" (:octave @state) " "))]]])

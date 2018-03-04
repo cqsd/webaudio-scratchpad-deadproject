@@ -1,8 +1,7 @@
-;; Definitions (because this vernacular feels better to me):
+;; Definitions
 ;; - source - a node
 ;; - output - a destination
-;; - channel - a plain js object: {source: source, output: output} TODO maybe rethink this
-;; god this is by far the worst Clojure I have ever written
+;; - channel - a plain js object: {source: source, output: output}
 (ns chipper.audio
   (:require [chipper.notes :as n]
             [chipper.utils :as u]))

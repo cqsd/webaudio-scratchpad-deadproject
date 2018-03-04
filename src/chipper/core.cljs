@@ -10,8 +10,9 @@
   (r/atom
     {:audio-context (create-audio-context)
      :chip nil
-     :key-chip nil
      :track-chan nil
+     :note-chip nil  ; for playing single notes when keys are pressed
+     :note-chan nil  ; sigh
      :scheme [:square :square :triangle :sawtooth]}))
 
 (def state

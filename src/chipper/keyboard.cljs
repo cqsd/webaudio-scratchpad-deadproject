@@ -186,8 +186,10 @@
         pre-move-position (relative-position pre-move active-position state)
         post-move-position (relative-position post-move active-position state)]
     ; (prn (str "note- " note- "note " note))
+    ;; XXX rich hickey have mercy on my soul
     {:set-attr [note (or pre-move-position active-position)]
-     :set-position post-move-position}))
+     :set-position post-move-position
+     :play-slice active-position}))
 
 ;; refactorable
 (defn edit-other-attr-handler
@@ -249,7 +251,7 @@
                {:tempo-up    1 :tempo-up-big    10
                 :tempo-down -1 :tempo-down-big -10})]
     (prn (str "current bpm " (:bpm @state)))
-    {:set-bpm (bounded-add 255 dbpm (:bpm @state))}))
+    {:set-bpm (max 0 (+ dbpm (:bpm @state)))}))
 
 (defn maybe-change-mode! [keycode state]
   (if (= :Escape keycode)
@@ -292,7 +294,9 @@
           [line chan attr] position
           frame (:active-frame @state)]
       (swap! state update-in [:slices frame line chan]
-             #(assoc % attr value)))))
+             #(assoc % attr value))))
+  (when-let [position (:play-slice directive)]
+    (c/play-slice! state position)))
 
 (defn set-octave! [directive state]
   (when-let [octave (:set-octave directive)]

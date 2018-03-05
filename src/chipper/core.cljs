@@ -2,7 +2,9 @@
   (:require [chipper.audio :refer [create-audio-context]]
             [chipper.keyboard :as k]
             [chipper.ui :as ui]
-            [reagent.core :as r]))
+            [chipper.utils :as u]
+            [reagent.core :as r]
+            [cljs.core.async :refer [chan]]))
 
 (enable-console-print!)
 
@@ -12,7 +14,7 @@
      :chip nil
      :track-chan nil
      :note-chip nil  ; for playing single notes when keys are pressed
-     :note-chan nil  ; sigh
+     :note-chan (chan 2)  ; sigh
      :scheme [:square :square :triangle :sawtooth]}))
 
 (def state

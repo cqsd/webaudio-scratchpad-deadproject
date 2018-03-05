@@ -5,6 +5,14 @@ html, body {
     font-size: 11pt;
     font-family: 'Inconsolata', monospace;
     height: 100%;
+    /* copy paste from so */
+  -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+     -khtml-user-select: none; /* Konqueror HTML */
+       -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome and Opera */
 }
 
 body {
@@ -161,17 +169,6 @@ span.ps:last-child:after { content: ""; }
 
 .button {
     cursor: default;
-
-    font-family: monospace;
-    font-weight: bold;
-
-    height: 1em;
-    width: 2ch;
-    display: block;
-    margin: 1px;
-
-    padding: .5em;
-    padding-right: 0;
 }
 
 .button:hover {

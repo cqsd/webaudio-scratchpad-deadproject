@@ -82,6 +82,12 @@
 (defn deserialize-frames [serialized-frames]
   (into [] (map deserialize-frame (split-lines serialized-frames))))
 
+(defn serialize-compressed [frames]
+  (js/LZString.compress (serialize-frames frames)))
+
+(defn deserialize-compressed [compressed]
+  (deserialize-frames (js/LZString.decompress compressed)))
+
 (defn save-state [state]
   (.setItem js/localStorage "state" @state))
 

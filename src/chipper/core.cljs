@@ -49,6 +49,11 @@
     #(prn (.-code %)))
 
   (.addEventListener
+    (js/document.getElementById "file")
+    "change"
+    #(u/load-save-file! state %))
+
+  (.addEventListener
     js/window
     "mousedown"
     (fn [ev]

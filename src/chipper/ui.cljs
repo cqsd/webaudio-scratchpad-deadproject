@@ -12,26 +12,27 @@
           (for [instrument scheme]
             (gs/format " %-11s" (name instrument))))])
 
-; (defn modeline [left right state]
-;   [:pre#modeline.flex-spread
-;    [:span#modeline-left left]   ; string already called at bottom, BAD XXX
-;    [:span#modeline-right
-;     [:span#save.button {:on-click #(prn "clicked A")} "A"]
-;     " "
-;     [:span#play.button {:on-click #(utils/save-frame-state! state)} "A"]
-;     " "]])
+(defn edit-mode [mode]
+  [:span {:class (when (= :edit mode) "bright-text")}
+   (str " " (name mode))])
 
 (defn modeline [left right state]
   [:pre#modeline.flex-spread
-   [:span#modeline-left left]   ; string already called at bottom, BAD XXX
+   [:span#modeline-left [edit-mode (:mode @state)] left]
    [:span#modeline-right
-    [:span {:id "save"
+    [:label {:class :button :for :file} "load"]
+    " "
+    [:span {:id :save
             :class (str "button"
                         (when (:frame-edited @state) " bright-text"))
-            :on-click #(utils/save-frame-state! state)}
-     (if (:frame-edited @state) "save" "saved")]
+            :on-click #(utils/save! state)}
+     "save"]
     " "
-    [:span#play.button {:on-click #(c/play-track state (:player @state))}
+    [:span {:id :play
+            :class (str "button"
+                        (when (:track-chan @(:player @state))
+                          " bright-text"))
+            :on-click #(c/play-track state (:player @state))}
      (if (:track-chan @(:player @state)) "pause" "play")] " "]])
 
 (defn channel
@@ -132,8 +133,7 @@
                state]))]
     [modeline
      (apply str
-            [" " (name (:mode @state))
-             " " "bpm" (:bpm @state)
+            [" " "bpm" (:bpm @state)
              " " "octave" (:octave @state)])
      (str "uh" " ")
      state]]])

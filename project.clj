@@ -22,7 +22,7 @@
                 :figwheel {:on-jsload "chipper.core/on-js-reload"}
                 :compiler {:main chipper.core
                            :asset-path "js/compiled/out"
-                           :output-to "resources/public/js/compiled/chipper.js"
+                           :output-to "resources/public/js/chipper.js"
                            :output-dir "resources/public/js/compiled/out"
                            :externs ["resources/public/js/externs.js"]
                            :source-map-timestamp true
@@ -30,7 +30,7 @@
                            :preloads [devtools.preload]}}
                {:id "min"
                 :source-paths ["src"]
-                :compiler {:output-to "resources/public/js/compiled/chipper.js"
+                :compiler {:output-to "resources/public/js/chipper.js"
                            :main chipper.core
                            ;http://blog.alex-turok.com/2016/05/using-external-javascript-library-in.html
                            :externs ["resources/public/js/externs.js"]

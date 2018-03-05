@@ -10,6 +10,13 @@
          :active-chan 0
          :active-attr 0))
 
+(defn set-frame-used?! [frame state]
+  (swap! state assoc-in
+         [:used-frames frame]
+         (some identity
+               (sequence (comp cat cat)
+                         ((:slices @state) frame)))))
+
 ;; FIXME this shouldn't be in utils
 (defn delayed-chan
   "http://ku1ik.com/2015/10/12/sweet-core-async.html"
@@ -85,19 +92,19 @@
   (into [] (map deserialize-frame (split-lines serialized-frames))))
 
 (defn serialize-compressed [frames]
-  (js/LZString.compress (serialize-frames frames)))
+  (js/LZString.compressToBase64 (serialize-frames frames)))
 
 (defn deserialize-compressed [compressed]
-  (deserialize-frames (js/LZString.decompress compressed)))
+  (deserialize-frames (js/LZString.decompressFromBase64 compressed)))
 
-(defn save-frame-state! [state]
+(defn save-local! [state]
   (try
     (do (.setItem js/localStorage
              "state"
              (serialize-compressed (:slices @state)))
         (swap! state assoc :frame-edited nil))
     (catch js/Error e
-      (js/alert "Saving failed. Tough luck."))))
+      (prn "Couldn't save to local storage."))))
 
 (defn saved-frame-state [] (.getItem js/localStorage "state"))
 
@@ -110,25 +117,34 @@
           (throw (js/Error. "Bad save"))))
       (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
     (catch js/Error e
-      (do (js/alert "Error recovering. Using a blank track.")
+      (do (js/alert "Error recovering from local storage. Try loading a savefile.")
           (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil]))))))))))
 
-(defn save-frames [state]
-  (let [el (js/document.createElement "a")
-        blob (js/Blob. [(serialize-compressed (:frames @state))]
-                       {:type "application/octet-stream"})]
-    (set! (.-href el) (js/window.URL.createObjectURL blob))
-    (set! (.-id el) "asdf")
-    (set! (.-target el) "_blank")
-    (set! (.-download el) "download")
-    (.click el)))
+(defn save! [state]
+  (let [compressed (serialize-compressed  (:slices @state))
+        data-url   (str "data:application/octet-stream," compressed)]
+    (save-local! state)
+    (try
+      (do (prn data-url)
+        (js/window.open data-url "save")
+          (swap! state assoc :frame-edited nil))
+      (catch js/Error e
+        (js/alert "Error saving. Tough luck.")))))
 
-(defn set-frame-used?! [frame state]
-  (swap! state assoc-in
-         [:used-frames frame]
-         (some identity
-               (sequence (comp cat cat)
-                         ((:slices @state) frame)))))
+; TODO XXX ERROR HANDLING
+(defn set-frame-state-from-b64 [state s]
+  (swap! state assoc :slices (deserialize-compressed s))
+  (doseq [x (range (count (:used-frames @state)))]
+    (set-frame-used?! x state)))
+
+(defn load-save-file! [state evt]
+  (try
+    (let [file   (aget (.-files (.-target evt)) 0)
+          reader (js/FileReader.)]
+      (set! (.-onload reader) #(set-frame-state-from-b64 state (.-result reader)))
+      (.readAsText reader file))
+    (catch js/Error e
+      (js/alert "Unable to load from file. Tragic :/"))))
 
 (defn check-set-frame-use [state]
   ; (prn (str "frame edited" (:frame-edited @state)))

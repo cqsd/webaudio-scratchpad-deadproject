@@ -21,11 +21,12 @@
   (r/atom
     {:scheme (:scheme @player) ; spaghetti; TODO find where used and point
                                ; to :player :scheme instead
-     :slices (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil]))))))
+     :slices (u/recover-frames-or-make-new!)
      :active-line 0
      :active-chan 0
      :active-attr 0
      :active-frame 0
+     :frame-edited nil
      :used-frames (vec (repeat 32 nil)) ; for indicating on the right
      :octave 4
      :bpm 100
@@ -73,6 +74,9 @@
 (r/render-component
   [ui/main-ui (:scheme @state) (:slices @state) state player]
   (.getElementById js/document "app"))
+
+(doseq [x (range (count (:used-frames @state)))]
+  (u/set-frame-used?! x state))
 
 (defn on-js-reload []
   (when-not @listeners-initialized?

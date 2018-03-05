@@ -12,14 +12,27 @@
           (for [instrument scheme]
             (gs/format " %-11s" (name instrument))))])
 
-(defn modeline [left right]
+; (defn modeline [left right state]
+;   [:pre#modeline.flex-spread
+;    [:span#modeline-left left]   ; string already called at bottom, BAD XXX
+;    [:span#modeline-right
+;     [:span#save.button {:on-click #(prn "clicked A")} "A"]
+;     " "
+;     [:span#play.button {:on-click #(utils/save-frame-state! state)} "A"]
+;     " "]])
+
+(defn modeline [left right state]
   [:pre#modeline.flex-spread
    [:span#modeline-left left]   ; string already called at bottom, BAD XXX
    [:span#modeline-right
-    [:span#save.button {:on-click #(prn "clicked A")} "A"]
+    [:span {:id "save"
+            :class (str "button"
+                        (when (:frame-edited @state) " bright-text"))
+            :on-click #(utils/save-frame-state! state)}
+     (if (:frame-edited @state) "save" "saved")]
     " "
-    [:span#play.button {:on-click #(prn "clicked A")} "A"]
-    " "]])
+    [:span#play.button {:on-click #(c/play-track state (:player @state))}
+     (if (:track-chan @(:player @state)) "pause" "play")] " "]])
 
 (defn channel
   "One line of attributes for a single channel."
@@ -122,4 +135,5 @@
             [" " (name (:mode @state))
              " " "bpm" (:bpm @state)
              " " "octave" (:octave @state)])
-     (str "uh" " ")]]])
+     (str "uh" " ")
+     state]]])

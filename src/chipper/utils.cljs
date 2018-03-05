@@ -32,15 +32,16 @@
     (:used-frames @state)))
 
 (defn serialize-slice [slice]
-  (for [[[note octave] gain _] slice]
-    (let [notestr   (cond
-                      (nil? note) "-"
-                      (= :off note) "o"
-                      (= :stop note) "s"
-                      :else (.toString (note notes/note-steps) 16))
-          octavestr (or octave "-")
-          gainstr   (or gain "-")]
-      (str notestr octavestr gainstr))))
+  (apply str
+         (for [[[note octave] gain _] slice]
+           (let [notestr   (cond
+                             (nil? note) "-"
+                             (= :off note) "o"
+                             (= :stop note) "s"
+                             :else (.toString (note notes/note-steps) 16))
+                 octavestr (or octave "-")
+                 gainstr   (or gain "-")]
+             (str notestr octavestr gainstr)))))
 
 (defn serialize-frame [frame]
   (apply str (mapcat serialize-slice frame)))
@@ -61,23 +62,24 @@
 (def note-reverse-map (zipmap (vals notes/note-steps) (keys notes/note-steps)))
 
 (defn deserialize-slice [serialized-slice]
-  (into [] (for [[note- octave- gain-] (partition 3 serialized-slice)]
-     (let [note    (cond
-                     (= "-" note-) nil
-                     (= "o" note-) :off
-                     (= "s" note-) :stop
-                     :else (note-reverse-map (js/parseInt note- 16)))
-           octave  (cond
-                     (= "-" octave-) nil
-                     :else (js/parseInt octave-))
-           gain    (cond
-                     (= "-" gain-) nil
-                     :else (js/parseInt gain-))]
-       ; if both nil, just give nil insead of [nil nil] for note
-       [(when-not (nil? (or note octave)) [note octave]) gain nil]))))
+  (vec
+    (for [[note- octave- gain-] (partition 3 serialized-slice)]
+      (let [note    (cond
+                      (= "-" note-) nil
+                      (= "o" note-) :off
+                      (= "s" note-) :stop
+                      :else (note-reverse-map (js/parseInt note- 16)))
+            octave  (cond
+                      (= "-" octave-) nil
+                      :else (js/parseInt octave-))
+            gain    (cond
+                      (= "-" gain-) nil
+                      :else (js/parseInt gain-))]
+        ; if both nil, just give nil insead of [nil nil] for note
+        [(when-not (nil? (or note octave)) [note octave]) gain nil]))))
 
 (defn deserialize-frame [serialized-frame]
-  (into [] (map deserialize-slice (partition (* 32 4 3) serialized-frame))))
+  (vec (map deserialize-slice (partition (* 4 3) serialized-frame))))
 
 (defn deserialize-frames [serialized-frames]
   (into [] (map deserialize-frame (split-lines serialized-frames))))
@@ -88,8 +90,52 @@
 (defn deserialize-compressed [compressed]
   (deserialize-frames (js/LZString.decompress compressed)))
 
-(defn save-state [state]
-  (.setItem js/localStorage "state" @state))
+(defn save-frame-state! [state]
+  (try
+    (do (.setItem js/localStorage
+             "state"
+             (serialize-compressed (:slices @state)))
+        (swap! state assoc :frame-edited nil))
+    (catch js/Error e
+      (js/alert "Saving failed. Tough luck."))))
+
+(defn saved-frame-state [] (.getItem js/localStorage "state"))
+
+(defn recover-frames-or-make-new! []
+  (try
+    (if-let [saved (saved-frame-state)]
+      (let [found (deserialize-compressed (saved-frame-state))]
+        (if (= 32 (count found))
+          found
+          (throw (js/Error. "Bad save"))))
+      (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
+    (catch js/Error e
+      (do (js/alert "Error recovering. Using a blank track.")
+          (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil]))))))))))
+
+(defn save-frames [state]
+  (let [el (js/document.createElement "a")
+        blob (js/Blob. [(serialize-compressed (:frames @state))]
+                       {:type "application/octet-stream"})]
+    (set! (.-href el) (js/window.URL.createObjectURL blob))
+    (set! (.-id el) "asdf")
+    (set! (.-target el) "_blank")
+    (set! (.-download el) "download")
+    (.click el)))
+
+(defn set-frame-used?! [frame state]
+  (swap! state assoc-in
+         [:used-frames frame]
+         (some identity
+               (sequence (comp cat cat)
+                         ((:slices @state) frame)))))
+
+(defn check-set-frame-use [state]
+  ; (prn (str "frame edited" (:frame-edited @state)))
+  (when (:frame-edited @state)
+    (set-frame-used?! (:active-frame @state) state)
+    (swap! state assoc
+           :frame-edited nil)))
 
 (defn enumerate
   ([coll]

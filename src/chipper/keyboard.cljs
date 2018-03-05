@@ -44,8 +44,7 @@
 
   :edit-global
   {:ShiftBracketRight :forward-frame
-   :ShiftBracketLeft  :back-frame
-   :Space      :play-pause}})
+   :ShiftBracketLeft  :back-frame}})
 
 (def insert-dispatch-mappings
   (merge-with
@@ -69,7 +68,10 @@
               (mapcat identity
                       (for [n (range 10)
                             :let [s (keyword (str "Digit" n))]]
-                       [s s]))))}))
+                       [s s]))))
+     :relative-movement
+     {:Space      :down-line
+      :ShiftSpace :up-line}}))
 
 (def normal-dispatch-mappings
   (merge-with
@@ -91,6 +93,9 @@
 
      :edit-attr
      {:KeyX      :delete}
+
+     :edit-global
+     {:Space :play-pause}
 
      :edit-bpm
      {:Period      :tempo-up
@@ -189,7 +194,7 @@
     ;; XXX rich hickey have mercy on my soul
     {:set-attr [note (or pre-move-position active-position)]
      :set-position post-move-position
-     :play-slice active-position}))
+     :play-slice (when-not (or (= (note 0) :off) (= (note 0) :stop)) active-position)}))
 
 ;; refactorable
 (defn edit-other-attr-handler
@@ -216,7 +221,7 @@
 (defn edit-octave-handler [octave _ state]
   (let [current (:octave @state)
         doctave (case octave
-                  :up-octave (if (> 12 current) 1 0)
+                  :up-octave (if (> 9 current) 1 0)
                   :down-octave (if (pos? current) -1 0)
                   0)]
     {:set-octave (+ current doctave)}))

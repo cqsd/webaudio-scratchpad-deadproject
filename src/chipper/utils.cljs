@@ -1,5 +1,7 @@
 (ns chipper.utils
-  (:require [cljs.core.async :refer [<! >! chan close! timeout]])
+  (:require [cljs.core.async :refer [<! >! chan close! timeout]]
+            [clojure.string :refer [split-lines]]
+            [chipper.notes :as notes])  ; not good to require this in utils
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (defn reset-cursor! [state]
@@ -24,11 +26,61 @@
         (close! ch)))
     ch))
 
-(defn serialize-state
-  ;; TODO
-  [state])
+(defn nonempty-frames [state]
+  (keep-indexed
+    (fn [i v] (when v (get-in @state [:slices i])))
+    (:used-frames @state)))
 
-(defn deserialize-editor [saved-state])
+(defn serialize-slice [slice]
+  (for [[[note octave] gain _] slice]
+    (let [notestr   (cond
+                      (nil? note) "-"
+                      (= :off note) "o"
+                      (= :stop note) "s"
+                      :else (.toString (note notes/note-steps) 16))
+          octavestr (or octave "-")
+          gainstr   (or gain "-")]
+      (str notestr octavestr gainstr))))
+
+(defn serialize-frame [frame]
+  (apply str (mapcat serialize-slice frame)))
+
+(defn serialize-frames
+  "Format is:
+  version on first line, length 4 (%0.01)
+  For Version 0.01:
+  one frame per line
+  each slice is a sequence of four notes
+  each note is a sequence of 3 characters
+   - note is 0-B (0-11) inclusive; o for :off, s for :stop
+   - octave is 0-9 inclusiv
+   - gain is 0-9 inclusive"
+  [frames]
+  (apply str (interpose "\n" (map serialize-frame frames))))
+
+(def note-reverse-map (zipmap (vals notes/note-steps) (keys notes/note-steps)))
+
+(defn deserialize-slice [serialized-slice]
+  (into [] (for [[note- octave- gain-] (partition 3 serialized-slice)]
+     (let [note    (cond
+                     (= "-" note-) nil
+                     (= "o" note-) :off
+                     (= "s" note-) :stop
+                     :else (note-reverse-map (js/parseInt note- 16)))
+           octave  (cond
+                     (= "-" octave-) nil
+                     :else (js/parseInt octave-))
+           gain    (cond
+                     (= "-" gain-) nil
+                     :else (js/parseInt gain-))]
+       ; if both nil, just give nil insead of [nil nil] for note
+       [(when-not (nil? (or note octave)) [note octave]) gain nil]))))
+
+(defn deserialize-frame [serialized-frame]
+  (into [] (map deserialize-slice (partition (* 32 4 3) serialized-frame))))
+
+(defn deserialize-frames [serialized-frames]
+  (into [] (map deserialize-frame (split-lines serialized-frames))))
 
 (defn save-state [state]
   (.setItem js/localStorage "state" @state))

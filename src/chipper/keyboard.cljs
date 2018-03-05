@@ -226,27 +226,16 @@
                   0)]
     {:set-octave (+ current doctave)}))
 
-(defn check-set-frame-use [state]
-  ; (prn (str "frame edited" (:frame-edited @state)))
-  (when (:frame-edited @state)
-    (swap! state assoc-in
-           [:used-frames (:active-frame @state)]
-           (some identity
-                 (sequence (comp cat cat)
-                           ((:slices @state) (:active-frame @state)))))
-    (swap! state assoc
-           :frame-edited nil)))
-
 ;; XXX these handlers aren't supposed to alter state, that's what the
 ;; set-<name>! functions are for
 (defn edit-global-handler [internal-key _ state]
   (case internal-key
     :play-pause (c/play-track state (:player @state))
     ;; TODO refactor all the position resets
-    :forward-frame (do (check-set-frame-use state)
+    :forward-frame (do (u/check-set-frame-use state)
                        (swap! state assoc
                               :active-frame (min 31 (inc (:active-frame @state)))))
-    :back-frame (do (check-set-frame-use state)
+    :back-frame (do (u/check-set-frame-use state)
                     (swap! state assoc
                            :active-frame (max 0 (dec (:active-frame @state))))))
   nil)  ; returning nil skips directives
@@ -350,7 +339,7 @@
           directives        (handler internal-key active-position state)]
       (prn dispatch-key)
       (prn directives)
-      (when directives  ;; this check makes frame-jumping slightly faster
+      (when (:set-attr directives)  ;; this check makes frame-jumping slightly faster
         (swap! state assoc :frame-edited true))
       (set-attr! directives state)
       (set-octave! directives state)

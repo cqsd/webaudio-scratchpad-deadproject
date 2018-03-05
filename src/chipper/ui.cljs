@@ -5,13 +5,6 @@
             [goog.string.format]
             [reagent.core :as r]))
 
-(defn main-controls [state player]
-  [:div
-   [:div#main-controls.controls
-    [:span.button {:on-click #(c/play-track state player)} "▶"]
-    [:span.button {:on-click #(utils/save-state state)} "✎"]]
-   [:div.control-vertical-fill]])
-
 (defn scheme-line [scheme]
   [:pre#scheme
    (apply str
@@ -19,13 +12,14 @@
           (for [instrument scheme]
             (gs/format " %-11s" (name instrument))))])
 
-(defn modeline [& mode]
+(defn modeline [left right]
   [:pre#modeline.flex-spread
-    (for [[stat n] (utils/enumerate mode)
-          :let [id (str "modeline-" n)]]
-      ^{:key id}
-      [:span {:id id} (str stat)])])
-    ;[:form.tempo-input [:input {:type "number"}]]
+   [:span#modeline-left left]   ; string already called at bottom, BAD XXX
+   [:span#modeline-right
+    [:span#save.button {:on-click #(prn "clicked A")} "A"]
+    " "
+    [:span#play.button {:on-click #(prn "clicked A")} "A"]
+    " "]])
 
 (defn channel
   "One line of attributes for a single channel."
@@ -54,6 +48,7 @@
                :class (str (name (if attr-active?
                                    (or mode :active-attr)
                                    :attr))
+                           (when (= note-- :off)  " bright-text")
                            (when (= note-- :stop) " stopline"))}
         s])])) ; <-- it's part of the span
 
@@ -123,6 +118,8 @@
                (= line-number active-line)
                state]))]
     [modeline
-     (str " " (name (:mode @state)))
-     (str (str "bpm" (:bpm @state) " ")
-          (str "octave" (:octave @state) " "))]]])
+     (apply str
+            [" " (name (:mode @state))
+             " " "bpm" (:bpm @state)
+             " " "octave" (:octave @state)])
+     (str "uh" " ")]]])

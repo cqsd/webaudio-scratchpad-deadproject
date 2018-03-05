@@ -194,7 +194,7 @@
     ;; XXX rich hickey have mercy on my soul
     {:set-attr [note (or pre-move-position active-position)]
      :set-position post-move-position
-     :play-slice (when-not (or (= (note 0) :off) (= (note 0) :stop)) active-position)}))
+     :play-slice (when-not (or (= (get note 0) :off) (= (get note 0) :stop)) active-position)}))
 
 ;; refactorable
 (defn edit-other-attr-handler
@@ -301,7 +301,7 @@
       (swap! state update-in [:slices frame line chan]
              #(assoc % attr value))))
   (when-let [position (:play-slice directive)]
-    (c/play-slice! state position)))
+    (c/play-slice! state (:player @state) position)))
 
 (defn set-octave! [directive state]
   (when-let [octave (:set-octave directive)]

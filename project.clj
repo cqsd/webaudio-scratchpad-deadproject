@@ -24,6 +24,7 @@
                            :asset-path "js/compiled/out"
                            :output-to "resources/public/js/compiled/chipper.js"
                            :output-dir "resources/public/js/compiled/out"
+                           :externs ["resources/public/js/externs.js"]
                            :source-map-timestamp true
                            ;; print clj data structures in console
                            :preloads [devtools.preload]}}
@@ -31,6 +32,8 @@
                 :source-paths ["src"]
                 :compiler {:output-to "resources/public/js/compiled/chipper.js"
                            :main chipper.core
+                           ;http://blog.alex-turok.com/2016/05/using-external-javascript-library-in.html
+                           :externs ["resources/public/js/externs.js"]
                            :optimizations :advanced
                            :pretty-print false}}]}
   :figwheel {:css-dirs ["resources/public/css"] ;; watch and update CSS

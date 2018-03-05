@@ -2,7 +2,7 @@
 (ns chipper.chips
   (:require [chipper.audio :as a]
             [chipper.utils :as u]
-            [cljs.core.async :refer [<! close!]])
+            [cljs.core.async :refer [<! >! close! timeout] :as async])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (def available-waves [:sine :triangle :square :sawtooth])
@@ -105,27 +105,30 @@
     ;; and it needs a refactor but so does everything else in this project
     (stop-track! state player (:chip @player)))))
 
-;; XXX refactor big 2nite
+;take everything off the chan
+;turn off the chip
+;push shit on the chan
+;turn the chip on
 (defn play-slice!
   "more delicious spaghetti for playing single line when you enter a note"
-  [state [line & _ :as active-position]]
-  (let [player (:player @state)
-        chip (if-let [chip- (:note-chip @player)]  ; fml
-               chip-
-               (do (swap! player assoc :note-chip
-                          (create-chip! (:scheme @state) (:audio-context @player)))
-                   (:note-chip @player)))
-        slice (get-in @state [:slices (:active-frame @state) line])
-        track (u/delayed-chan [[0 0 slice] [0 0 [[[:off nil]] nil nil]]] 280)]
-    (if-not (:note-chan @player)
-      (do (swap! player assoc :note-chan track)
-          (chip-off! chip)
-          (go-loop []
-                   (when-let [[frame line slice] (<! track)]
-                     (let [notes (filter identity (map (comp first first) slice))]
-                       (do (set-chip-attrs! chip slice)
-                           (recur))))
-                   (chip-off! chip)))
-      (do (close! track)
-          (swap! player assoc :note-chan nil)
-          (play-slice! state active-position)))))
+  [state player [line & _ :as active-position]]
+  (when-not (:note-chip @player)
+    (swap! player assoc
+           :note-chip (create-chip! (:scheme @state) (:audio-context @player))))
+  (let [ch-    (:note-chan @player)
+        ch     (:note-chan (swap! player assoc :note-chan (async/chan)))
+        chip   (:note-chip @player)
+        slice  (get-in @state [:slices (:active-frame @state) line])
+        track- [[0 0 slice] [0 0 [[[:off nil]] nil nil]]]]
+    (chip-off! chip)
+    (close! ch-)
+    (go (>! ch [0 0 slice])
+        (<! (timeout 280))  ; in ms
+        (>! ch [0 0 [[[:off nil]] nil nil]])
+        (close! ch))
+    (go-loop []
+             (when-let [[frame line slice] (<! ch)]
+               (let [notes (filter identity (map (comp first first) slice))]
+                 (do (set-chip-attrs! chip slice)
+                     (recur))))
+             (chip-off! chip))))

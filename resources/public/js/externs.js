@@ -1,3 +1,3 @@
 var LZString = {};
-LZString.compress = function() {};
-LZString.decompress = function() {};
+LZString.compressToBase64 = function() {};
+LZString.decompressFromBase64 = function() {};

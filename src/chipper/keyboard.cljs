@@ -1,10 +1,5 @@
-;; this needs a HUGE refactor
-;; handlers (misnamed) should return a map {:set-<key> <value> . . .}
-;; then a set-<name>! function (name is the category of value) takes
-;; in that map to alter state
-;; TODO set-global doesn't conform
-;; TODO set-octave can merge into set-global
-;; honestly a lot of these should be merged
+;; NOTE TO NV:
+;; this file just needs to be wholly rewritten
 (ns chipper.keyboard
   (:require [chipper.chips :as c]
             [chipper.utils :as u]
@@ -12,9 +7,6 @@
             [cljs.core.async :refer [put! pipe chan close! timeout]]
             [goog.events :as events]))
 
-; ---------------------------------------------------------------------
-; MAPPINGS -- Maybe these should be moved into a config file? ---------
-; ---------------------------------------------------------------------
 (def change-mode-mappings
   ; :Escape    :normal   ;; implicit
   {:KeyI      :edit})
@@ -35,6 +27,7 @@
     :BracketLeft  :left-chan}
 
   :edit-attr
+  ;; 17jun18 like what is this shit
   {:Backspace :delete-and-move-up}
 
   :edit-octave
@@ -46,6 +39,7 @@
   {:ShiftBracketRight :forward-frame
    :ShiftBracketLeft  :back-frame}})
 
+;; 17jun18 what the fuck is this!
 (def insert-dispatch-mappings
   (merge-with
     conj
@@ -63,10 +57,12 @@
         :ShiftKeyX :stop
         :Backspace :delete-above}
 
+       ;; 17jun18 what the fuck!!!!
        ;; {:Digit0 :Digit0...} yeah, this is a really bad hack my god
        (apply hash-map
               (mapcat identity
                       (for [n (range 10)
+                            ;; 17jun18 WHAT
                             :let [s (keyword (str "Digit" n))]]
                        [s s]))))
      :relative-movement
@@ -75,7 +71,7 @@
 
 (def normal-dispatch-mappings
   (merge-with
-    conj
+    conj  ; 17jun18 AAAAAAAAAAAAAAAAAAAAHHHHHHHHHHHHHHHHHHHH
     common-mappings
     {:relative-movement
      {:KeyJ :down-line
@@ -104,6 +100,7 @@
       :ShiftComma  :tempo-down-big}
 }))
 
+;; 17jun18 DELETE! DELEET!!
 (def internal-values
   (merge
     {;; relative movement

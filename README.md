@@ -36,5 +36,5 @@ Figwheel Controls:
 Prompt will show when Figwheel connects to your application
 ```
 you're ready to develop. Open `localhost:3449` to connect the cljs repl with your
-browser and get live code reloads (and whatever else the hell it does because I
+browser and get live code reloads (and whatever the hell else it does because I
 really don't remember)

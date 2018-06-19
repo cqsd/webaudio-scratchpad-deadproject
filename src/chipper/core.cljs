@@ -21,7 +21,7 @@
   (r/atom
     {:scheme (:scheme @player) ; spaghetti; TODO find where used and point
                                ; to :player :scheme instead
-     :slices (u/recover-frames-or-make-new!)
+     :slices (u/empty-frames)
      :active-line 0
      :active-chan 0
      :active-attr 0
@@ -65,16 +65,17 @@
     [ui/main-ui (:scheme @state) (:slices @state) state player]
     (.getElementById js/document "app")))
 
-(defn set-used-frames []
-  "Since we may load frames on init, update state to mark the used frames."
-  (doseq [x (range (count (:used-frames @state)))]
-    (u/set-frame-used?! x state)))
+(defn load-state []
+  "Discover and load any saved state."
+  (let [found-frames (u/recover-frames-or-make-new!)]
+    (u/set-frames! found-frames state)
+    (u/set-used-frames! found-frames state)))
 
 (defn init-app []
   "Set the initial conditions and start the app."
   (register-listeners)
-  (render-app)
-  (set-used-frames))
+  (load-state)
+  (render-app))
 
 (defn on-js-reload []
   "It would be nice if this were in dev.cljs automatically, somehow."

@@ -12,6 +12,7 @@
          :active-attr 0))
 
 (defn set-frame-used?! [frame state]
+  "If :frame is used, mark it as such in :state."
   (swap! state assoc-in
          [:used-frames frame]
          (some identity

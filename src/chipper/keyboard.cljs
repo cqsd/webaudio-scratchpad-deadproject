@@ -336,3 +336,20 @@
       (set-octave! directives state)
       (set-position! directives state)
       (set-bpm! directives state))))
+
+
+(defn handle-mousedown!
+  "Handles the mousedown event, which doesn't need to go through the keymappings."
+  [ev state]
+  (let [id (.-id (.-target ev))
+       [_ literal-chan _ :as id-data] (.split id "-")
+       [line chan attr :as parsed-id] (map js/parseInt id-data)]
+    (when (every? number? parsed-id)  ;; This indicates the user clicked in the main area.
+      (swap! state assoc
+             :active-line line
+             :active-chan chan
+             :active-attr attr))
+    (when (= "f" literal-chan)  ;; This indicates the user clicked on a page.
+      (swap! state assoc
+             :active-frame line)
+      (u/set-frame-used?! (:active-frame @state) state))))

@@ -56,24 +56,7 @@
   (.addEventListener
     js/window
     "mousedown"
-    (fn [ev]
-      (let [id (.-id (.-target ev))
-           [line- chan- attr- :as id-data] (.split id "-")
-           [line chan attr] (map js/parseInt id-data)]
-       (when (every? #(number? %) [line chan attr])
-         (swap! state assoc
-                :active-line  line
-                :active-chan  chan
-                :active-attr  attr))
-       (when (= "f" chan-)
-         (swap! state assoc-in
-                [:used-frames (:active-frame @state)]
-                (some identity
-                      (sequence (comp cat cat)
-                                ((:slices @state) (:active-frame @state)))))
-         (swap! state assoc
-                :active-frame line))
-       (prn [id line chan attr]))))
+    #(k/handle-mousedown! % state))
   (reset! listeners-initialized? true))
 
 (r/render-component
@@ -94,12 +77,5 @@
     (.addEventListener
       js/window
       "mousedown"
-      (fn [ev] (let [id (.-id (.-target ev))
-                     [line chan attr] (map js/parseInt (.split id "-"))]
-                 (when (every? #(number? %) [line chan attr])
-                   (swap! state assoc
-                          :active-line  line
-                          :active-chan  chan
-                          :active-attr  attr))
-                 (prn [id line chan attr]))))
+      #(k/handle-mousedown! % state))
     (reset! listeners-initialized? true)))

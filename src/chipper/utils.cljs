@@ -12,6 +12,7 @@
          :active-attr 0))
 
 (defn set-frame-used?! [frame state]
+  "If :frame is used, mark it as such in :state."
   (swap! state assoc-in
          [:used-frames frame]
          (some identity
@@ -109,6 +110,9 @@
 
 (defn saved-frame-state [] (.getItem js/localStorage "state"))
 
+(defn empty-frames []
+  (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
+
 (defn recover-frames-or-make-new! []
   (try
     (if-let [saved (saved-frame-state)]
@@ -116,10 +120,17 @@
         (if (= 32 (count found))
           found
           (throw (js/Error. "Bad save"))))
-      (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
+      (empty-frames))
     (catch js/Error e
       (do (js/alert "Error recovering from local storage. Try loading a savefile.")
-          (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil]))))))))))
+          (empty-frames)))))
+
+(defn set-frames! [frames state]
+  (swap! state assoc :slices frames))
+
+(defn set-used-frames! [frames state]
+  (doseq [x (range (count (:used-frames @state)))]
+    (set-frame-used?! x state)))
 
 (defn save! [state]
   (let [compressed (serialize-compressed  (:slices @state))

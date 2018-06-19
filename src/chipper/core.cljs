@@ -21,7 +21,7 @@
   (r/atom
     {:scheme (:scheme @player) ; spaghetti; TODO find where used and point
                                ; to :player :scheme instead
-     :slices (u/recover-frames-or-make-new!)
+     :slices (u/empty-frames)
      :active-line 0
      :active-chan 0
      :active-attr 0
@@ -35,56 +35,9 @@
 
 (defonce listeners-initialized? (atom nil))
 
-(when-not @listeners-initialized?
-  ;; Is there a better way to do this? not that this is bad, since this is a strictly
-  ;; defined set of events, but...
-  (.addEventListener
-    js/window
-    "keydown"
-    #(k/handle-keypress! % state))
-
-  (.addEventListener
-    js/window
-    "keydown"
-    #(prn (.-code %)))
-
-  (.addEventListener
-    (js/document.getElementById "file")
-    "change"
-    #(u/load-save-file! state %))
-
-  (.addEventListener
-    js/window
-    "mousedown"
-    (fn [ev]
-      (let [id (.-id (.-target ev))
-           [line- chan- attr- :as id-data] (.split id "-")
-           [line chan attr] (map js/parseInt id-data)]
-       (when (every? #(number? %) [line chan attr])
-         (swap! state assoc
-                :active-line  line
-                :active-chan  chan
-                :active-attr  attr))
-       (when (= "f" chan-)
-         (swap! state assoc-in
-                [:used-frames (:active-frame @state)]
-                (some identity
-                      (sequence (comp cat cat)
-                                ((:slices @state) (:active-frame @state)))))
-         (swap! state assoc
-                :active-frame line))
-       (prn [id line chan attr]))))
-  (reset! listeners-initialized? true))
-
-(r/render-component
-  [ui/main-ui (:scheme @state) (:slices @state) state player]
-  (.getElementById js/document "app"))
-
-(doseq [x (range (count (:used-frames @state)))]
-  (u/set-frame-used?! x state))
-
-;; NOTE it would be REAL nice if this were in dev.clj somehow
-(defn on-js-reload []
+(defn register-listeners
+  "Register listeners for the app. This is the 'init' code."
+  []
   (when-not @listeners-initialized?
     (.addEventListener
       js/window
@@ -93,13 +46,39 @@
 
     (.addEventListener
       js/window
+      "keydown"
+      #(prn (.-code %)))
+
+    (.addEventListener
+      (js/document.getElementById "file")
+      "change"
+      #(u/load-save-file! state %))
+
+    (.addEventListener
+      js/window
       "mousedown"
-      (fn [ev] (let [id (.-id (.-target ev))
-                     [line chan attr] (map js/parseInt (.split id "-"))]
-                 (when (every? #(number? %) [line chan attr])
-                   (swap! state assoc
-                          :active-line  line
-                          :active-chan  chan
-                          :active-attr  attr))
-                 (prn [id line chan attr]))))
+      #(k/handle-mousedown! % state))
     (reset! listeners-initialized? true)))
+
+(defn render-app []
+  (r/render-component
+    [ui/main-ui (:scheme @state) (:slices @state) state player]
+    (.getElementById js/document "app")))
+
+(defn load-state []
+  "Discover and load any saved state."
+  (let [found-frames (u/recover-frames-or-make-new!)]
+    (u/set-frames! found-frames state)
+    (u/set-used-frames! found-frames state)))
+
+(defn init-app []
+  "Set the initial conditions and start the app."
+  (register-listeners)
+  (load-state)
+  (render-app))
+
+(defn on-js-reload []
+  "It would be nice if this were in dev.cljs automatically, somehow."
+  (register-listeners))
+
+(init-app)

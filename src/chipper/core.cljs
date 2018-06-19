@@ -35,39 +35,9 @@
 
 (defonce listeners-initialized? (atom nil))
 
-(when-not @listeners-initialized?
-  ;; Is there a better way to do this? not that this is bad, since this is a strictly
-  ;; defined set of events, but...
-  (.addEventListener
-    js/window
-    "keydown"
-    #(k/handle-keypress! % state))
-
-  (.addEventListener
-    js/window
-    "keydown"
-    #(prn (.-code %)))
-
-  (.addEventListener
-    (js/document.getElementById "file")
-    "change"
-    #(u/load-save-file! state %))
-
-  (.addEventListener
-    js/window
-    "mousedown"
-    #(k/handle-mousedown! % state))
-  (reset! listeners-initialized? true))
-
-(r/render-component
-  [ui/main-ui (:scheme @state) (:slices @state) state player]
-  (.getElementById js/document "app"))
-
-(doseq [x (range (count (:used-frames @state)))]
-  (u/set-frame-used?! x state))
-
-;; NOTE it would be REAL nice if this were in dev.clj somehow
-(defn on-js-reload []
+(defn register-listeners
+  "Register listeners for the app. This is the 'init' code."
+  []
   (when-not @listeners-initialized?
     (.addEventListener
       js/window
@@ -76,6 +46,38 @@
 
     (.addEventListener
       js/window
+      "keydown"
+      #(prn (.-code %)))
+
+    (.addEventListener
+      (js/document.getElementById "file")
+      "change"
+      #(u/load-save-file! state %))
+
+    (.addEventListener
+      js/window
       "mousedown"
       #(k/handle-mousedown! % state))
     (reset! listeners-initialized? true)))
+
+(defn render-app []
+  (r/render-component
+    [ui/main-ui (:scheme @state) (:slices @state) state player]
+    (.getElementById js/document "app")))
+
+(defn set-used-frames []
+  "Since we may load frames on init, update state to mark the used frames."
+  (doseq [x (range (count (:used-frames @state)))]
+    (u/set-frame-used?! x state)))
+
+(defn init-app []
+  "Set the initial conditions and start the app."
+  (register-listeners)
+  (render-app)
+  (set-used-frames))
+
+(defn on-js-reload []
+  "It would be nice if this were in dev.cljs automatically, somehow."
+  (register-listeners))
+
+(init-app)

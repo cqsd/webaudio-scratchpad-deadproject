@@ -1,10 +1,7 @@
-;; NOTE TO NV:
-;; this file just needs to be wholly rewritten
 (ns chipper.keyboard
   (:require [chipper.chips :as c]
             [chipper.utils :as u]
             [chipper.utils :refer [bounded-add]]
-            [cljs.core.async :refer [put! pipe chan close! timeout]]
             [goog.events :as events]))
 
 (def change-mode-mappings
@@ -18,7 +15,6 @@
    {:ArrowDown    :down-line
     :ArrowUp      :up-line
     :Enter        :down-line
-    :ShiftEnter   :up-line
     :ArrowLeft    :left-attr
     :ArrowRight   :right-attr
     :Tab          :right-chan
@@ -154,7 +150,7 @@
         [dline
          dchan        ;; this is really fuckin savage
          dattr]       (case move-vector
-                        :up-jump   [(let [n (mod (:active-line state-) 2)]
+                        :up-jump   [(let [n (mod line 2)]
                                      (if (zero? n) -2 (- n)))
                                      0 0]
                         :down-jump [(- 2 (mod (:active-line state-) 2)) 0 0]
@@ -163,9 +159,7 @@
         next-attr-    (+ attr dattr)
         dchan         (or dchan
                           (if (or (neg? next-attr-) (> next-attr- 2)) dattr 0))
-        ;; next-line     (bounded-add (dec (count (:slices state))) line dline)
-        ;; next-chan     (bounded-add (dec (count (:scheme state))) chan dchan)
-        ;; decided to show one frame at a time and have only 4 channels
+        ;; we're working with one frame (32 lines) at a time and have 4 channels
         next-line     (bounded-add 31 line dline)
         next-chan     (bounded-add 3 chan dchan)
         next-attr     (if (or (and (= chan 0) (neg? dattr))
@@ -342,13 +336,3 @@
       (set-octave! directives state)
       (set-position! directives state)
       (set-bpm! directives state))))
-
-;; TODO this needs to go somewhere else (should the chan also handle mousdown?)
-(defn init-keycode-chan! []
-  (let [ch (chan)]
-    (.addEventListener ;; XXX is this really the best we can do
-      js/window
-      "keydown"
-      (fn [ev]
-        (put! ch (keyword (.-code ev))))) ;; key code is agnostic of kb layout
-    ch))

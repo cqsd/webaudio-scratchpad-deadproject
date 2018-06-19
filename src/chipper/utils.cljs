@@ -5,6 +5,7 @@
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (defn reset-cursor! [state]
+  "Set the cursor position to top left."
   (swap! state assoc
          :active-line 0
          :active-chan 0
@@ -165,7 +166,10 @@
   (min maximum (max 0 (reduce + args))))
 
 (defn normalize-digit
-  "This is hardcoded because the entire domain and range are known..."
+  "I have no clue why this is called what it's called and it should be
+  renamed. Honestly, I don't think this even needs to be its own function;
+  it's used once, and specifically tailored for the gain channel. Maybe I'll
+  call it `map-gain` or something. Who knows!"
   [digit]
-  (or (get [0 0.11 0.22 0.33 0.44 0.55 0.66 0.77 0.88 1] digit)
-      0.55)) ;; arbitrary
+  (* 0.05 (or (get [0 0.11 0.22 0.33 0.44 0.55 0.66 0.77 0.88 1] digit)
+             0.55))) ;; arbitrary

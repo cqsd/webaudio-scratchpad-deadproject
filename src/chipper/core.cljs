@@ -14,7 +14,7 @@
      :chip nil
      :track-chan nil
      :note-chip nil  ; for playing single notes when keys are pressed
-     :note-chan (chan 2)  ; sigh
+     :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
      :scheme [:square :square :triangle :sawtooth]}))
 
 (def state
@@ -83,6 +83,7 @@
 (doseq [x (range (count (:used-frames @state)))]
   (u/set-frame-used?! x state))
 
+;; NOTE it would be REAL nice if this were in dev.clj somehow
 (defn on-js-reload []
   (when-not @listeners-initialized?
     (.addEventListener

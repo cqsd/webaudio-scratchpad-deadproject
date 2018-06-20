@@ -1,9 +1,11 @@
 ## Chipper
 In-browser chiptune tracker.
 
-Build with `lein cljsbuild once min`, load `resources/public/index.html`.
+### Build
+`lein cljsbuild once min`, load `resources/public/index.html`
 
-Start a dev repl with `lein repl`. Once it starts up, run `(lets-go)` (defined
+### Develop
+Start a repl with `lein repl`. Once it starts up, run `(lets-go)` (defined
 in `dev/user.clj`) to start figwheel:
 ```
 user=> (lets-go)

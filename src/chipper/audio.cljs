@@ -1,10 +1,14 @@
-;; Definitions
+;; Definitions OK here's a TODO I don't think I actually use these arbitrary
+;; naming rules, so do a quick check for where I do and undo it to avoid
+;; confusion with the WebAudio API
 ;; - source - a node
 ;; - output - a destination
 ;; - channel - a plain js object: {source: source, output: output}
 (ns chipper.audio
   (:require [chipper.notes :as n]
             [chipper.utils :as u]))
+
+(def default-gain-level 0.1)
 
 (defn create-audio-context []
   (let [context (or js/window.AudioContext
@@ -30,43 +34,43 @@
   node)
 
 (defn create-osc
+  "Available types are sine, square, triangle, sawtooth. Prefer passing type as
+  a keyword (e.g. :sine) for style.
+
+  https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode/type"
   [context osc-type-]
   (let [osc-type (name osc-type-)
         osc (.createOscillator context osc-type)]
     (set! (.-type osc) osc-type)
     osc))
-  ; ([context osc-type] (create-osc context osc-type :A 4))
-  ; ;; TODO this second arity is probably not necessary
-  ; ([context osc-type- & freq-args]
-  ;  (let [osc-type (name osc-type-)
-  ;        osc (.createOscillator context osc-type)
-  ;        freq (if (number? (first freq-args))
-  ;               (first freq-args)
-  ;               (apply n/frequency freq-args)) ]
-  ;    (set! (.-type osc) osc-type)
-  ;    (set! (.-value (.-frequency osc)) freq)
-  ;    osc)))
 
 (defn create-gain
-  ([context] (create-gain context 1))
-  ([context level]
-   (let [gain (.createGain context)]
-     (set! (.-value (.-gain gain)) level)
-     gain)))
+  "Gain level should be in [0,1]."
+  [context level]
+  (let [gain (.createGain context)]
+    (set! (.-value (.-gain gain)) level)
+    gain))
 
+;; the ! naming is inconsistent in this namespace; the standalone create-* fns
+;; actually change state but don't have the bang
 (defn create-osc-channel! [context osc-type]
   "Create an oscillator, start it, and return a JS object containing the
   oscillator and the speaker destination."
   (let [osc (create-osc context osc-type)
-        gain (create-gain context 0.1)] ;; XXX uh...
-    (.start osc) ;; XXX should create-osc just start the osc before returning?
+        gain (create-gain context default-gain-level)]
+    (.start osc)
+    ;; I know what it says in the docstring but this is not a raw JS object and
+    ;; I need to check that no code anywhere expects it to be. I mean, if it
+    ;; did, shit would break, so I don't expect so. It's also deeply unaesthetic
+    ;; to have a random JS object here but I think it maybe happens elsewhere
     {:source  osc
      :gain    gain
      :output  (destination context)
      :context context}))
 
 (defn create-osc-channels! [context osc-types]
-  ;; TODO change to doseq or something when sober
+  ;; TODO find out if mapv works in cljs because I can't be bothered to wait
+  ;; for a repl to start right now
   (vec (map #(create-osc-channel! context %) osc-types)))
 
 (defn chan-on! [channel]
@@ -90,10 +94,11 @@
                      (.-currentTime (:context channel)))
   channel))
 
+;; TODO I don't know what gain-digit is, and I'd like to find out
 (defn set-gain! [channel gain-digit]
   (let [normalized (u/normalize-digit gain-digit)
         gain (:gain channel)]
-    (println gain)
+    ;; (println gain)
     (.setValueAtTime (.-gain gain)
                      normalized
                      (.-currentTime (:context channel)))))

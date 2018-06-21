@@ -40,11 +40,6 @@
   "Register listeners for the app. This is the 'init' code."
   []
   (when-not @listeners-initialized?
-    (.addEventListener
-      js/window
-      "keydown"
-      #(k/handle-keypress! % state))
-
     ;; take note :^)
     (.addEventListener
       js/window

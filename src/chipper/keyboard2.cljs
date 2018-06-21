@@ -120,7 +120,7 @@
    :Backspace [:macro {:type :simple :value [[:attr nil] (:up-line -motions)]}]
    :Space     [:relative-position (:down-line -motions)]})
 
-(def keymap
+(def mode-keymaps
   {:normal normal-keymap
    :edit   edit-keymap})
 
@@ -212,7 +212,7 @@
   [params state]
   (js/alert "not implemented!"))
 
-(def handler-map
+(def property-handlers
   {:relative-position set-relative-position!
    :absolute-position set-absolute-position!
    :frame set-relative-frame!
@@ -228,6 +228,6 @@
   ;; to shortcircuit a bit
   (when-let [keycode (-> ev prevent-movement! translate-keycode)]
     (let [mode              (:mode @state)
-          [property params] (get-in keymap [mode keycode])]
-      (when-let [handler (handler-map property)]
+          [property params] (get-in mode-keymaps [mode keycode])]
+      (when-let [handler (property-handlers property)]
         (handler params state)))))

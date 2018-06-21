@@ -1,6 +1,7 @@
 (ns chipper.core
   (:require [chipper.audio :refer [create-audio-context]]
             [chipper.keyboard :as k]
+            [chipper.keyboard2 :as k2]
             [chipper.ui :as ui]
             [chipper.utils :as u]
             [reagent.core :as r]
@@ -43,6 +44,12 @@
       js/window
       "keydown"
       #(k/handle-keypress! % state))
+
+    ;; take note :^)
+    (.addEventListener
+      js/window
+      "keydown"
+      #(k2/handle-keypress! % state))
 
     (.addEventListener
       js/window

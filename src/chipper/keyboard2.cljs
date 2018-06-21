@@ -32,6 +32,16 @@
 
 (def measure-size 4)
 
+;; XXX These should maybe be somwhere else, like core, or... something
+;; also note that if you use these, the max index of the cursor is 1 less
+;; because position is 0-indexed
+(def frame-count 32)
+(def frame-length 32)
+(def chan-count 4)
+(def attr-count 3)
+;; a hack, because of course
+(def total-attr-positions (* chan-count attr-count))
+
 (def -motions
   {:down  [ 1  0  0]
    :up    [-1  0  0]
@@ -42,28 +52,28 @@
   {;; relative movement
    ;; keeping :position for clarity. The representation for cursor position may
    ;; change in the future, thus -motions
-   :KeyJ        [:position (:down  -motions)]
-   :KeyK        [:position (:up    -motions)]
-   :KeyH        [:position (:left  -motions)]
-   :KeyL        [:position (:right -motions)]
+   :KeyJ        [:relative-position (:down  -motions)]
+   :KeyK        [:relative-position (:up    -motions)]
+   :KeyH        [:relative-position (:left  -motions)]
+   :KeyL        [:relative-position (:right -motions)]
 
-   :KeyEnter    [:position (:down  -motions)]
-   :ArrowDown   [:position (:down  -motions)]
-   :ArrowUp     [:position (:up    -motions)]
-   :ArrowLeft   [:position (:left  -motions)]
-   :ArrowRight  [:position (:right -motions)]
+   :KeyEnter    [:relative-position (:down  -motions)]
+   :ArrowDown   [:relative-position (:down  -motions)]
+   :ArrowUp     [:relative-position (:up    -motions)]
+   :ArrowLeft   [:relative-position (:left  -motions)]
+   :ArrowRight  [:relative-position (:right -motions)]
 
-   :KeyW        [:position [ 4  0  0]]
-   :KeyB        [:position [-4  0  0]]
+   :KeyW        [:relative-position [measure-size     0 0]]
+   :KeyB        [:relative-position [(- measure-size) 0 0]]
 
    :ShiftBracketRight [:frame  1]
-   :BracketRight      [:frame -1]
+   :ShiftBracketLeft  [:frame -1]
 
    ;; absolute movement
-   :KeyG        [:position [:first :first :first]]
-   :ShiftKeyG   [:position [:last  :last  :last]]
-   :Digit0      [:position [:first :first :first]]
-   :ShiftDigit4 [:position [:last  :last  :last]]
+   :KeyG        [:absolute-position [:first :first :first]]
+   :ShiftKeyG   [:absolute-position [:last  :last  :last]]
+   :Digit0      [:absolute-position [:first :first :first]]
+   :ShiftDigit4 [:absolute-position [:last  :last  :last]]
 
    ;; mode change
    :KeyI [:mode :edit]
@@ -108,7 +118,7 @@
    :ShiftKeyX :stop
 
    :Backspace [:macro {:type :simple :value [[:attr nil] (:up-line -motions)]}]
-   :Space     [:position (:down-line -motions)]})
+   :Space     [:relative-position (:down-line -motions)]})
 
 (def keymap
   {:normal normal-keymap
@@ -132,26 +142,81 @@
                 ;; .-code is nil if not a keypress
                 (.-code ev))))
 
-;; XXX don't know what to name these, but might not matter
-(defn position!
+(defn set-position!
+  "Cursor position setter. Prefer using this over swap!-ing the state
+  atom directly"
+  [[line chan attr] state]
+  (swap! state assoc
+         :active-line line
+         :active-chan chan
+         :active-attr attr))
+
+(defn set-relative-position!
+  "This is still a mess, sort of"
+  [[dline dchan dattr] state]
+  ;; ever heard of select-keys?
+  (let [line (:active-line @state)
+        chan (:active-chan @state)
+        attr (:active-attr @state)
+        next-line (u/bounded-add (dec frame-length) line dline)
+        ;; TODO temporary, hopefully :)
+        ;; for now, we'll use cursor-attr-pos for these next two until the
+        ;; composer state representation gets fixed...
+        cursor-attr-pos (+ (* attr-count chan) attr)
+        ;; a plain mod of attr + dattr would cause the cursor to cycle in the first
+        ;; and last channel positions, so this is one way to solve that
+        next-attr- (u/bounded-add (dec total-attr-positions) cursor-attr-pos dattr)
+        next-attr (mod next-attr- attr-count)
+        next-chan (quot next-attr- attr-count)]
+    (set-position! [next-line next-chan next-attr] state)))
+
+;; it's just gotta map the keywords to the numbahz
+;; and that's just because all the bounds checking happens here; the ui just
+;; silently fails to render the cursor (and probably other things) if you give
+;; invalid indices
+(defn set-absolute-position!
+  "bit of potentially confusing naming, given the existence of set-position!"
+  [params state]
+  (js/alert "not implemented!"))
+
+(defn set-frame!
+  "Frame setter. Prefer using this over swap!-ing the state atom directly."
+  ;; I hate that I'm using the word setter and defining functions called set-*
+  [frame state]
+  (swap! state assoc
+         :active-frame frame))
+
+;; TODO set frame-edited
+(defn set-relative-frame!
+  "Frame setter. Prefer using this over swap!-ing the state atom directly."
+  ;; I hate that I'm using the word setter and defining functions called set-*
+  [dframe state]
+  (let [frame (:active-frame @state)]
+    (set-frame!
+      (u/bounded-add (dec frame-count) frame dframe)
+      state)))
+
+(defn set-attr!
+  "Attribute setter. Prefer using this over swap!-ing the state atom directly."
   [params state])
 
-(defn frame!
-  [params state])
-
-(defn attr!
+(defn set-attr-at-cursor!
   [params state])
 
 (defn macro!
-  [params state])
+  "it's gonna have to handle :simple and :complex macros"
+  [params state]
+  (js/alert "not implemented!"))
 
 (defn special!
-  [params state])
+  [params state]
+  (js/alert "not implemented!"))
 
 (def handler-map
-  {:position position!
-   :frame frame!
-   :attr attr!
+  {:relative-position set-relative-position!
+   :absolute-position set-absolute-position!
+   :frame set-relative-frame!
+   :attr set-attr-at-cursor!
    :special special!
    :macro macro!})
 

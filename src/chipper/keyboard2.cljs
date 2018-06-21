@@ -32,7 +32,7 @@
 
 (def measure-size 4)
 
-(def motions-
+(def -motions
   {:down  [ 1  0  0]
    :up    [-1  0  0]
    :left  [ 0  0 -1]
@@ -41,17 +41,17 @@
 (def normal-keymap
   {;; relative movement
    ;; keeping :position for clarity. The representation for cursor position may
-   ;; change in the future, thus motions-
-   :KeyJ        [:position (:down  motions-)]
-   :KeyK        [:position (:up    motions-)]
-   :KeyH        [:position (:left  motions-)]
-   :KeyL        [:position (:right motions-)]
+   ;; change in the future, thus -motions
+   :KeyJ        [:position (:down  -motions)]
+   :KeyK        [:position (:up    -motions)]
+   :KeyH        [:position (:left  -motions)]
+   :KeyL        [:position (:right -motions)]
 
-   :KeyEnter    [:position (:down  motions-)]
-   :ArrowDown   [:position (:down  motions-)]
-   :ArrowUp     [:position (:up    motions-)]
-   :ArrowLeft   [:position (:left  motions-)]
-   :ArrowRight  [:position (:right motions-)]
+   :KeyEnter    [:position (:down  -motions)]
+   :ArrowDown   [:position (:down  -motions)]
+   :ArrowUp     [:position (:up    -motions)]
+   :ArrowLeft   [:position (:left  -motions)]
+   :ArrowRight  [:position (:right -motions)]
 
    :KeyW        [:position [ 4  0  0]]
    :KeyB        [:position [-4  0  0]]
@@ -70,7 +70,7 @@
    :KeyV [:mode :visual]
 
    ;; other
-   :KeyX        [:macro {:type :simple :value [[:attr nil] (:down-line motions-)]}]
+   :KeyX        [:macro {:type :simple :value [[:attr nil] (:down-line -motions)]}]
    ;; so these could be special or just, like... :tempo, and :octave
    ;; I'm leaving them out for now
    ;; :Period [:special [:tempo 1]]
@@ -107,8 +107,8 @@
    :KeyX      :off
    :ShiftKeyX :stop
 
-   :Backspace [:macro {:type :simple :value [[:attr nil] (:up-line motions-)]}]
-   :Space     [:position (:down-line motions-)]})
+   :Backspace [:macro {:type :simple :value [[:attr nil] (:up-line -motions)]}]
+   :Space     [:position (:down-line -motions)]})
 
 (def keymap
   {:normal normal-keymap

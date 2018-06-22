@@ -345,7 +345,8 @@
        [_ literal-chan _ :as id-data] (.split id "-")
        [line chan attr :as parsed-id] (map js/parseInt id-data)]
     ; NB: If the user clicks out of the main area, 'id-data will be '"",
-    ; so we need to check for that explicitly.
+    ; which gets parsed to 'NaN by 'js/parseInt, so we must check for
+    ; that case explicitly.
     ;; This indicates the user clicked in the main area.
     (when (and (== 3 (count parsed-id)) (every? number? parsed-id))
       (swap! state assoc

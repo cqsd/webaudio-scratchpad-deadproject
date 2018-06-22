@@ -2,7 +2,7 @@
   (:require [chipper.audio :refer [create-audio-context]]
             [chipper.keyboard :as k]
             [chipper.ui :as ui]
-            [chipper.utils :as u]
+            [chipper.state :as s]
             [reagent.core :as r]
             [cljs.core.async :refer [chan]]))
 
@@ -21,7 +21,7 @@
   (r/atom
     {:scheme (:scheme @player) ; spaghetti; TODO find where used and point
                                ; to :player :scheme instead
-     :slices (u/empty-frames)
+     :slices (s/empty-frames)
      :active-line 0
      :active-chan 0
      :active-attr 0
@@ -52,7 +52,7 @@
     (.addEventListener
       (js/document.getElementById "file")
       "change"
-      #(u/load-save-file! state %))
+      #(s/load-save-file! state %))
 
     (.addEventListener
       js/window
@@ -67,9 +67,9 @@
 
 (defn load-state []
   "Discover and load any saved state."
-  (let [found-frames (u/recover-frames-or-make-new!)]
-    (u/set-frames! found-frames state)
-    (u/set-used-frames! found-frames state)))
+  (let [found-frames (s/recover-frames-or-make-new!)]
+    (s/set-frames! found-frames state)
+    (s/set-used-frames! found-frames state)))
 
 (defn init-app []
   "Set the initial conditions and start the app."

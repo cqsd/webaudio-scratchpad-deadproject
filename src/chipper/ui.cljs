@@ -1,6 +1,6 @@
 (ns chipper.ui
   (:require [chipper.chips :as c]
-            [chipper.utils :as utils]
+            [chipper.state :as s]
             [goog.string :as gs]
             [goog.string.format]
             [reagent.core :as r]))
@@ -25,7 +25,7 @@
     [:span {:id :save
             :class (str "button"
                         (when (:frame-edited @state) " bright-text"))
-            :on-click #(utils/save! state)}
+            :on-click #(s/save! state)}  ; TODO FIXME don't call save-state directly, make it an action.
      "save"]
     " "
     [:span {:id :play

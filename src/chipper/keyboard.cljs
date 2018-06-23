@@ -1,6 +1,7 @@
 (ns chipper.keyboard
   (:require [chipper.chips :as c]
             [chipper.utils :as u]
+            [chipper.state :as s]
             [chipper.utils :refer [bounded-add]]
             [goog.events :as events]))
 
@@ -223,10 +224,10 @@
   (case internal-key
     :play-pause (c/play-track state (:player @state))
     ;; TODO refactor all the position resets
-    :forward-frame (do (u/check-set-frame-use state)
+    :forward-frame (do (s/check-set-frame-use state)
                        (swap! state assoc
                               :active-frame (min 31 (inc (:active-frame @state)))))
-    :back-frame (do (u/check-set-frame-use state)
+    :back-frame (do (s/check-set-frame-use state)
                     (swap! state assoc
                            :active-frame (max 0 (dec (:active-frame @state))))))
   nil)  ; returning nil skips directives
@@ -356,4 +357,4 @@
     (when (= "f" literal-chan)  ;; This indicates the user clicked on a page.
       (swap! state assoc
              :active-frame line)
-      (u/set-frame-used?! (:active-frame @state) state))))
+      (s/set-frame-used?! (:active-frame @state) state))))

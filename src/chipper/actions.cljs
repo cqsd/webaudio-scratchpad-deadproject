@@ -1,7 +1,7 @@
 ;; TODO it would feel more natural to pass state as the first argument to each
 ;; of these fns rather than the last
 (ns chipper.actions
-  (:require [chipper.keyboard2 :as k]
+  (:require [chipper.keyboard :as k]
             [chipper.state :as s]))
 
 ;; you've never seen ugly code before

@@ -344,7 +344,11 @@
   (let [id (.-id (.-target ev))
        [_ literal-chan _ :as id-data] (.split id "-")
        [line chan attr :as parsed-id] (map js/parseInt id-data)]
-    (when (every? number? parsed-id)  ;; This indicates the user clicked in the main area.
+    ; NB: If the user clicks out of the main area, 'id-data will be '"",
+    ; which gets parsed to 'NaN by 'js/parseInt, so we must check for
+    ; that case explicitly.
+    ;; This indicates the user clicked in the main area.
+    (when (and (== 3 (count parsed-id)) (every? number? parsed-id))
       (swap! state assoc
              :active-line line
              :active-chan chan

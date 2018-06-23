@@ -5,7 +5,6 @@
             [cljs.core.async :refer [<! >! close! timeout] :as async])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
-(def available-waves [:sine :triangle :square :sawtooth])
 
 (defn create-chip!
   "Just returns a vector of output-connected sources for now."

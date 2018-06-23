@@ -2,7 +2,11 @@
 ;; of these fns rather than the last
 (ns chipper.actions
   (:require [chipper.keyboard :as k]
+            [chipper.chips :as c]
             [chipper.state :as s]))
+
+(defn play-pause! [_ state] ; uh oh
+  (c/play-track state))
 
 ;; you've never seen ugly code before
 (declare handle-property!)
@@ -23,7 +27,7 @@
    :attr s/set-attr-at-cursor!
    :octave s/set-relative-octave!
    :bpm s/set-relative-bpm!
-   :play-pause s/play-pause!
+   :play-pause play-pause!
    ;; hm
    :macro macro!})
 

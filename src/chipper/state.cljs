@@ -1,8 +1,40 @@
 (ns chipper.state
   (:require [clojure.string :refer [split-lines]]
+            [cljs.core.async :refer [chan]]
+            [reagent.core :as r]
+            [chipper.audio :refer [create-audio-context]]
             [chipper.constants :as const]
-            [chipper.chips :as c]
             [chipper.utils :as u]))
+
+(defn empty-frames []
+  (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
+
+(def state
+  (r/atom
+    {:slices (empty-frames)
+     :active-line 0
+     :active-chan 0
+     :active-attr 0
+     :active-frame 0
+     :frame-edited nil
+     :used-frames (vec (repeat 32 nil)) ; for indicating on the right
+     :octave 4
+     :bpm 100
+     :mode :normal
+     :player {:audio-context (create-audio-context)
+              :chip nil
+              :track-chan nil
+              :note-chip nil  ; for playing single notes when keys are pressed
+              :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
+              :scheme [:square :square :triangle :sawtooth]}}))
+
+(defn get-player
+  [state attr]
+  (get-in @state [:player attr]))
+
+(defn update-player
+  [state attr value]
+  (swap! state update-in [:player attr] (constantly value)))
 
 (defn cursor-position [state]
   [(:active-line @state)
@@ -93,7 +125,7 @@
                   [value- nil nil])
                 value-)]
     (set-attr! position frame value state)
-    (when playable (c/play-slice! state (:player @state) position))))
+    (comment (when playable (c/play-slice! state (:player @state) position)))))
 
 (defn set-relative-octave!
   [direction state]
@@ -106,9 +138,6 @@
   (set-bpm!
     (+ (:bpm @state) (const/-garbage direction))
     state))
-
-(defn play-pause! [_ state] ; uh oh
-  (c/play-track state (:player @state)))
 
 (defn nonempty-frames [state]
   (keep-indexed
@@ -182,9 +211,6 @@
       (prn "Couldn't save to local storage."))))
 
 (defn saved-frame-state [] (.getItem js/localStorage "state"))
-
-(defn empty-frames []
-  (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
 
 (defn recover-frames-or-make-new! []
   (try

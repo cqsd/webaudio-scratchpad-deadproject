@@ -24,7 +24,7 @@
 (defn name-rel
   [root-name semitone]
   (let [root-semitone (root-name -semitone-rel-c)
-        adjusted-semitone (mod (+ root-semitone semitone) 11)]
+        adjusted-semitone (mod (+ root-semitone semitone) 12)]
     (get -name-rel-c adjusted-semitone)))
 
 

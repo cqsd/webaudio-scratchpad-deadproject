@@ -1,31 +1,10 @@
 (ns chipper.core
-  (:require [chipper.audio :refer [create-audio-context]]
-            [chipper.keyboard :as k]
+  (:require [chipper.keyboard :as k]
             [chipper.ui :as ui]
             [chipper.state :as s]
-            [reagent.core :as r]
-            [cljs.core.async :refer [chan]]))
+            [reagent.core :as r]))
 
 (enable-console-print!)
-
-(def state
-  (r/atom
-    {:slices (s/empty-frames)
-     :active-line 0
-     :active-chan 0
-     :active-attr 0
-     :active-frame 0
-     :frame-edited nil
-     :used-frames (vec (repeat 32 nil)) ; for indicating on the right
-     :octave 4
-     :bpm 100
-     :mode :normal
-     :player {:audio-context (create-audio-context)
-              :chip nil
-              :track-chan nil
-              :note-chip nil  ; for playing single notes when keys are pressed
-              :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
-              :scheme [:square :square :triangle :sawtooth]}}))
 
 (defonce listeners-initialized? (atom nil))
 
@@ -36,7 +15,7 @@
     (.addEventListener
       js/window
       "keydown"
-      #(k/handle-keypress! % state))
+      #(k/handle-keypress! % s/state))
 
     (.addEventListener
       js/window
@@ -46,24 +25,24 @@
     (.addEventListener
       (js/document.getElementById "file")
       "change"
-      #(s/load-save-file! state %))
+      #(s/load-save-file! s/state %))
 
     (.addEventListener
       js/window
       "mousedown"
-      #(k/handle-mousedown! % state))
+      #(k/handle-mousedown! % s/state))
     (reset! listeners-initialized? true)))
 
 (defn render-app []
   (r/render-component
-    [ui/main-ui (:scheme @state) (:slices @state) state]
+    [ui/main-ui (:scheme @s/state) (:slices @s/state) s/state]
     (.getElementById js/document "app")))
 
 (defn load-state []
   "Discover and load any saved state."
   (let [found-frames (s/recover-frames-or-make-new!)]
-    (s/set-frames! found-frames state)
-    (s/set-used-frames! found-frames state)))
+    (s/set-frames! found-frames s/state)
+    (s/set-used-frames! found-frames s/state)))
 
 (defn init-app []
   "Set the initial conditions and start the app."

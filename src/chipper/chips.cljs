@@ -2,9 +2,9 @@
 (ns chipper.chips
   (:require [chipper.audio :as a]
             [chipper.utils :as u]
+            [chipper.state :refer [get-player update-player]]
             [cljs.core.async :refer [<! >! close! timeout] :as async])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
-
 
 (defn create-chip!
   "Just returns a vector of output-connected sources for now."
@@ -12,15 +12,6 @@
   ([scheme audio-context]
     {:scheme scheme
      :channels (a/create-osc-channels! audio-context scheme)}))
-
-; TODO UNFUCK STATE HANDLING
-(defn get-player
-  [state attr]
-  (get-in @state [:player attr]))
-
-(defn update-player
-  [state attr value]
-  (swap! state update-in [:player attr] (constantly value)))
 
 (defn chip-for-state [state]
   (create-chip! (get-player state :scheme) (get-player state :audio-context)))

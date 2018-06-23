@@ -1,5 +1,38 @@
 (ns chipper.state
-  (:require [clojure.string :refer [split-lines]]))
+  (:require [clojure.string :refer [split-lines]]
+            [reagent.core :as r]
+            [chipper.audio :refer [create-audio-context]]
+            [cljs.core.async :refer [chan]]))
+
+(defn empty-frames []
+  (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
+
+(def state
+  (r/atom
+    {:slices (empty-frames)
+     :active-line 0
+     :active-chan 0
+     :active-attr 0
+     :active-frame 0
+     :frame-edited nil
+     :used-frames (vec (repeat 32 nil)) ; for indicating on the right
+     :octave 4
+     :bpm 100
+     :mode :normal
+     :player {:audio-context (create-audio-context)
+              :chip nil
+              :track-chan nil
+              :note-chip nil  ; for playing single notes when keys are pressed
+              :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
+              :scheme [:square :square :triangle :sawtooth]}}))
+
+(defn get-player
+  [state attr]
+  (get-in @state [:player attr]))
+
+(defn update-player
+  [state attr value]
+  (swap! state update-in [:player attr] (constantly value)))
 
 (defn reset-cursor! [state]
   "Set the cursor position to top left."
@@ -88,9 +121,6 @@
       (prn "Couldn't save to local storage."))))
 
 (defn saved-frame-state [] (.getItem js/localStorage "state"))
-
-(defn empty-frames []
-  (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
 
 (defn recover-frames-or-make-new! []
   (try

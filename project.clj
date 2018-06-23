@@ -18,7 +18,6 @@
               [{:id "dev"
                 :source-paths ["src"]
                 ;; inject figwheel into cljs build
-                :figwheel {:on-jsload "chipper.core/on-js-reload"}
                 :compiler {:main chipper.core
                            :asset-path "js/compiled/out"
                            :output-to "resources/public/js/chipper.js"

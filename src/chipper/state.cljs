@@ -87,12 +87,12 @@
         ;; so for now, if the cursor's on the note, we insert [notename octave]
         ;; otherwise we insert NOTHING
         playable (not (or (nil? value-) (#{:off :stop} value-)))
-        value (when (zero? attr)
+        value (if (zero? attr)
                 (if playable
                   [value- (:octave @state)]
-                  [value- nil nil]))]
+                  [value- nil nil])
+                value-)]
     (set-attr! position frame value state)
-    ;; so we're carrying over garbage from the previous implementation
     (when playable (c/play-slice! state (:player @state) position))))
 
 (defn set-relative-octave!

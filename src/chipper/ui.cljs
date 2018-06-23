@@ -1,9 +1,14 @@
 (ns chipper.ui
   (:require [chipper.chips :as c]
             [chipper.state :as s]
+            [chipper.notes :as n]
             [goog.string :as gs]
             [goog.string.format]
             [reagent.core :as r]))
+
+
+;; TODO FIXME: everything is relative to :C right now.
+(defn note-name [semitone] (name (n/name-rel :C semitone)))
 
 (defn scheme-line [scheme]
   [:pre#scheme
@@ -43,7 +48,7 @@
                       :off "X"
                       :stop "S"
                       nil  "-"
-                      (name note--))
+                      (note-name note--))
         octave      (or octave "-")
         attr-strs   [(str " " note (when (= 1 (count note)) "-") octave " ")
                      (if gain   (str " " gain " ")   " - ")

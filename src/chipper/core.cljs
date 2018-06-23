@@ -1,37 +1,34 @@
 (ns chipper.core
-  (:require [chipper.keyboard :as k]
+  (:require [chipper.audio :refer [create-audio-context]]
             [chipper.ui :as ui]
             [chipper.state :as s]
+            [chipper.actions :as a]
             [reagent.core :as r]))
 
 (enable-console-print!)
 
-(defonce listeners-initialized? (atom nil))
-
 (defn register-listeners
   "Register listeners for the app. This is the 'init' code."
   [state]
-  (when-not @listeners-initialized?
-    (.addEventListener
-      js/window
-      "keydown"
-      #(k/handle-keypress! % state))
+  (.addEventListener
+    js/window
+    "keydown"
+    #(a/handle-keypress! % state))
 
-    (.addEventListener
-      js/window
-      "keydown"
-      #(prn (.-code %)))
+  (.addEventListener
+    js/window
+    "keydown"
+    #(prn (.-code %)))
 
-    (.addEventListener
-      (js/document.getElementById "file")
-      "change"
-      #(s/load-save-file! state %))
+  (.addEventListener
+    (js/document.getElementById "file")
+    "change"
+    #(s/load-save-file! state %))
 
-    (.addEventListener
-      js/window
-      "mousedown"
-      #(k/handle-mousedown! % state))
-    (reset! listeners-initialized? true))
+  (.addEventListener
+    js/window
+    "mousedown"
+    #(a/handle-mousedown! % state))
   state)
 
 (defn render-app [state]

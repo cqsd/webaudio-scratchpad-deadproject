@@ -50,8 +50,4 @@
   (load-state state)
   (render-app state))
 
-(defn on-js-reload []
-  "It would be nice if this were in dev.cljs automatically, somehow."
-  (register-listeners))
-
 (init-app s/state)

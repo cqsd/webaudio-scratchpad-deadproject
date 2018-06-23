@@ -1,6 +1,7 @@
 (ns chipper.keyboard
   (:require [chipper.chips :as c]
             [chipper.utils :as u]
+            [chipper.state :as s]
             [chipper.utils :refer [bounded-add]]
             [goog.events :as events]))
 
@@ -42,13 +43,13 @@
     common-mappings
     {:edit-attr
      (merge
-       {:KeyA :C   :ShiftKeyA :C# :KeyW :C#
-        :KeyS :D   :ShiftKeyS :D# :KeyE :D#
-        :KeyD :E
-        :KeyF :F   :ShiftKeyF :F# :KeyT :F#
-        :KeyG :G   :ShiftKeyG :G# :KeyY :G#
-        :KeyH :A   :ShiftKeyH :A# :KeyU :A#
-        :KeyJ :B
+       {:KeyA 0   :ShiftKeyA 1 :KeyW 1
+        :KeyS 2   :ShiftKeyS 3 :KeyE 3
+        :KeyD 4
+        :KeyF 5   :ShiftKeyF 6 :KeyT 6
+        :KeyG 7   :ShiftKeyG 8 :KeyY 8
+        :KeyH 9   :ShiftKeyH 10 :KeyU 10
+        :KeyJ 11
         :KeyX :off
         :ShiftKeyX :stop
         :Backspace :delete-above}
@@ -223,10 +224,10 @@
   (case internal-key
     :play-pause (c/play-track state (:player @state))
     ;; TODO refactor all the position resets
-    :forward-frame (do (u/check-set-frame-use state)
+    :forward-frame (do (s/check-set-frame-use state)
                        (swap! state assoc
                               :active-frame (min 31 (inc (:active-frame @state)))))
-    :back-frame (do (u/check-set-frame-use state)
+    :back-frame (do (s/check-set-frame-use state)
                     (swap! state assoc
                            :active-frame (max 0 (dec (:active-frame @state))))))
   nil)  ; returning nil skips directives
@@ -356,4 +357,4 @@
     (when (= "f" literal-chan)  ;; This indicates the user clicked on a page.
       (swap! state assoc
              :active-frame line)
-      (u/set-frame-used?! (:active-frame @state) state))))
+      (s/set-frame-used?! (:active-frame @state) state))))

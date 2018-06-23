@@ -1,10 +1,66 @@
 (ns chipper.state
-  (:require [clojure.string :refer [split-lines]]))
+  (:require [clojure.string :refer [split-lines]]
+            [chipper.constants :as const]
+            [chipper.chips :as c]
+            [chipper.utils :as u]))
 
 (defn cursor-position [state]
   [(:active-line @state)
    (:active-chan @state)
    (:active-attr @state)])
+
+;; primitive editor state operations
+;; prefer using these over swap!-ing the state atom directly
+(defn set-mode!
+  [mode state]
+  (swap! state assoc :mode mode))
+
+(defn set-cursor-position!
+  [[line chan attr] state]
+  (swap! state assoc
+         :active-line line
+         :active-chan chan
+         :active-attr attr))
+
+(defn set-frame!
+  [frame state]
+  (swap! state assoc :active-frame frame))
+
+(defn set-attr!
+  [[line chan attr] frame value state]
+  (swap! state update-in [:slices frame line chan]
+         #(assoc % attr value)))
+
+(defn set-octave! [octave state]
+  (swap! state assoc :octave octave))
+
+(defn set-bpm! [bpm state]
+  (swap! state assoc :bpm bpm))
+
+;; canned state operations
+(defn reset-cursor! [state]
+  "Set the cursor position to top left."
+  (set-cursor-position! [0 0 0] state))
+
+(defn set-absolute-position!
+  "Potentially confusing naming, given the existence of set-cursor-position!"
+  [params state]
+  (js/alert "not implemented!"))
+
+(defn set-relative-position!
+  "This is still a mess."
+  [motion state]
+  (let [[dline dchan dattr] (const/motions motion)
+        [line chan attr] (cursor-position state)
+        next-line (u/bounded-add (dec const/frame-length) line dline)
+        ;; use this until the composer state representation gets fixed...
+        cursor-attr-pos (+ (* const/attr-count chan) attr)
+        ;; a plain mod of attr + dattr would cause the cursor to cycle in the first
+        ;; and last channel positions, so this is one way to solve that
+        next-attr- (u/bounded-add (dec const/total-attr-positions) cursor-attr-pos dattr)
+        next-attr (mod next-attr- const/attr-count)
+        next-chan (quot next-attr- const/attr-count)]
+    (set-cursor-position! [next-line next-chan next-attr] state)))
 
 (defn set-frame-used?! [frame state]
   "If :frame is used, mark it as such in :state."
@@ -13,6 +69,46 @@
          (some identity
                (sequence (comp cat cat)
                          ((:slices @state) frame)))))
+
+;; TODO set the frame-edited flag in state
+(defn set-relative-frame!
+  [dframe state]
+  (let [frame (:active-frame @state)]
+    (set-frame!
+      (u/bounded-add (dec const/frame-count) frame dframe)
+      state)))
+
+(defn set-attr-at-cursor!
+  ;; so value-'ll get renamed next patch to actually be meaninful, re set-attr!
+  [value- state]
+  (let [frame (:active-frame @state)
+        ;; mhm, mhm, yeah, this is a thing that will change next patch
+        [_ _ attr :as position] (cursor-position state)
+        ;; so for now, if the cursor's on the note, we insert [notename octave]
+        ;; otherwise we insert NOTHING
+        playable (not (or (nil? value-) (#{:off :stop} value-)))
+        value (when (zero? attr)
+                (if playable
+                  [value- (:octave @state)]
+                  [value- nil nil]))]
+    (set-attr! position frame value state)
+    ;; so we're carrying over garbage from the previous implementation
+    (when playable (c/play-slice! state (:player @state) position))))
+
+(defn set-relative-octave!
+  [direction state]
+  (set-octave!
+    (+ (:octave @state) (const/-garbage direction))
+    state))
+
+(defn set-relative-bpm!
+  [direction state]
+  (set-bpm!
+    (+ (:bpm @state) (const/-garbage direction))
+    state))
+
+(defn play-pause! [_ state] ; uh oh
+  (c/play-track state (:player @state)))
 
 (defn nonempty-frames [state]
   (keep-indexed

@@ -1,107 +1,8 @@
 ;; TODO it would feel more natural to pass state as the first argument to each
 ;; of these fns rather than the last
 (ns chipper.actions
-  (:require [clojure.string :refer [split-lines]]
-            [chipper.constants :as const]
-            [chipper.chips :as c]
-            [chipper.keyboard2 :as k]
-            [chipper.state :as s]
-            [chipper.utils :as u]))
-
-;; primitive editor state operations
-;; prefer using these over swap!-ing the state atom directly
-(defn set-mode!
-  [mode state]
-  (swap! state assoc :mode mode))
-
-(defn set-cursor-position!
-  [[line chan attr] state]
-  (swap! state assoc
-         :active-line line
-         :active-chan chan
-         :active-attr attr))
-
-(defn set-frame!
-  [frame state]
-  (swap! state assoc :active-frame frame))
-
-(defn set-attr!
-  [[line chan attr] frame value state]
-  (swap! state update-in [:slices frame line chan]
-         #(assoc % attr value)))
-
-(defn set-octave! [octave state]
-  (swap! state assoc :octave octave))
-
-(defn set-bpm! [bpm state]
-  (swap! state assoc :bpm bpm))
-
-;; canned state operations
-(defn reset-cursor! [state]
-  "Set the cursor position to top left."
-  (set-cursor-position! [0 0 0] state))
-
-(defn set-absolute-position!
-  "Potentially confusing naming, given the existence of set-cursor-position!"
-  [params state]
-  (js/alert "not implemented!"))
-
-(defn set-relative-position!
-  "This is still a mess."
-  [motion state]
-  (let [[dline dchan dattr] (const/motions motion)
-        [line chan attr] (s/cursor-position state)
-        next-line (u/bounded-add (dec const/frame-length) line dline)
-        ;; use this until the composer state representation gets fixed...
-        cursor-attr-pos (+ (* const/attr-count chan) attr)
-        ;; a plain mod of attr + dattr would cause the cursor to cycle in the first
-        ;; and last channel positions, so this is one way to solve that
-        next-attr- (u/bounded-add (dec const/total-attr-positions) cursor-attr-pos dattr)
-        next-attr (mod next-attr- const/attr-count)
-        next-chan (quot next-attr- const/attr-count)]
-    (set-cursor-position! [next-line next-chan next-attr] state)))
-
-;; TODO set the frame-edited flag in state
-(defn set-relative-frame!
-  [dframe state]
-  (let [frame (:active-frame @state)]
-    (set-frame!
-      (u/bounded-add (dec const/frame-count) frame dframe)
-      state)))
-
-(defn set-attr-at-cursor!
-  ;; so value-'ll get renamed next patch to actually be meaninful, re set-attr!
-  [value- state]
-  (let [frame (:active-frame @state)
-        ;; mhm, mhm, yeah, this is a thing that will change next patch
-        [_ _ attr :as position] (s/cursor-position state)
-        ;; so for now, if the cursor's on the note, we insert [notename octave]
-        ;; otherwise we insert NOTHING
-        playable (not (or (nil? value-) (#{:off :stop} value-)))
-        value (when (zero? attr)
-                (if playable
-                  [value- (:octave @state)]
-                  [value- nil nil]))]
-    (set-attr! position frame value state)
-    ;; so we're carrying over garbage from the previous implementation
-    (when playable (c/play-slice! state (:player @state) position)))
-  ;; and this means set-attr-at-cursor! could either be a macro, or,,,,,
-  (set-relative-position! (:down-line const/motions) state))
-
-(defn set-relative-octave!
-  [direction state]
-  (set-octave!
-    (+ (:octave @state) (const/-garbage direction))
-    state))
-
-(defn set-relative-bpm!
-  [direction state]
-  (set-bpm!
-    (+ (:bpm @state) (const/-garbage direction))
-    state))
-
-(defn play-pause! [_ state] ; uh oh
-  (c/play-track state (:player @state)))
+  (:require [chipper.keyboard2 :as k]
+            [chipper.state :as s]))
 
 ;; you've never seen ugly code before
 (declare handle-property!)
@@ -115,14 +16,15 @@
     (handle-property! property params state)))
 
 (def property-handlers
-  {:mode set-mode!
-   :motion set-relative-position!  ;; FIXME naming
-   :absolute-position set-absolute-position!
-   :frame set-relative-frame!
-   :attr set-attr-at-cursor!
-   :octave set-relative-octave!
-   :bpm set-relative-bpm!
-   :play-pause play-pause!
+  {:mode s/set-mode!
+   :motion s/set-relative-position!  ;; FIXME naming
+   :absolute-position s/set-absolute-position!
+   :frame s/set-relative-frame!
+   :attr s/set-attr-at-cursor!
+   :octave s/set-relative-octave!
+   :bpm s/set-relative-bpm!
+   :play-pause s/play-pause!
+   ;; hm
    :macro macro!})
 
 (defn handle-property!

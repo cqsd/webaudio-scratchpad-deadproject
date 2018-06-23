@@ -222,7 +222,7 @@
 ;; set-<name>! functions are for
 (defn edit-global-handler [internal-key _ state]
   (case internal-key
-    :play-pause (c/play-track state (:player @state))
+    :play-pause (c/play-track state)
     ;; TODO refactor all the position resets
     :forward-frame (do (s/check-set-frame-use state)
                        (swap! state assoc
@@ -282,7 +282,7 @@
       (swap! state update-in [:slices frame line chan]
              #(assoc % attr value))))
   (when-let [position (:play-slice directive)]
-    (c/play-slice! state (:player @state) position)))
+    (c/play-slice! state position)))
 
 (defn set-octave! [directive state]
   (when-let [octave (:set-octave directive)]

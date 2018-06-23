@@ -1,43 +1,16 @@
 (ns chipper.core
-  (:require [chipper.audio :refer [create-audio-context]]
-            [chipper.keyboard :as k]
+  (:require [chipper.keyboard :as k]
             [chipper.ui :as ui]
             [chipper.state :as s]
-            [reagent.core :as r]
-            [cljs.core.async :refer [chan]]))
+            [reagent.core :as r]))
 
 (enable-console-print!)
-
-(def player
-  (r/atom
-    {:audio-context (create-audio-context)
-     :chip nil
-     :track-chan nil
-     :note-chip nil  ; for playing single notes when keys are pressed
-     :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
-     :scheme [:square :square :triangle :sawtooth]}))
-
-(def state
-  (r/atom
-    {:scheme (:scheme @player) ; spaghetti; TODO find where used and point
-                               ; to :player :scheme instead
-     :slices (s/empty-frames)
-     :active-line 0
-     :active-chan 0
-     :active-attr 0
-     :active-frame 0
-     :frame-edited nil
-     :used-frames (vec (repeat 32 nil)) ; for indicating on the right
-     :octave 4
-     :bpm 100
-     :mode :normal
-     :player player})) ; spaghetti
 
 (defonce listeners-initialized? (atom nil))
 
 (defn register-listeners
   "Register listeners for the app. This is the 'init' code."
-  []
+  [state]
   (when-not @listeners-initialized?
     (.addEventListener
       js/window
@@ -58,27 +31,27 @@
       js/window
       "mousedown"
       #(k/handle-mousedown! % state))
-    (reset! listeners-initialized? true)))
+    (reset! listeners-initialized? true))
+  state)
 
-(defn render-app []
+(defn render-app [state]
   (r/render-component
-    [ui/main-ui (:scheme @state) (:slices @state) state player]
-    (.getElementById js/document "app")))
+    [ui/main-ui (s/get-player state :scheme) (:slices @state) state]
+    (.getElementById js/document "app"))
+  state)
 
-(defn load-state []
+(defn load-state [state]
   "Discover and load any saved state."
   (let [found-frames (s/recover-frames-or-make-new!)]
     (s/set-frames! found-frames state)
-    (s/set-used-frames! found-frames state)))
+    (s/set-used-frames! found-frames state))
+  state)
 
-(defn init-app []
+(defn init-app [state]
   "Set the initial conditions and start the app."
-  (register-listeners)
-  (load-state)
-  (render-app))
+  (-> state
+    register-listeners
+    load-state
+    render-app))
 
-(defn on-js-reload []
-  "It would be nice if this were in dev.cljs automatically, somehow."
-  (register-listeners))
-
-(init-app)
+(init-app s/state)

@@ -10,12 +10,12 @@
 
 (defn register-listeners
   "Register listeners for the app. This is the 'init' code."
-  []
+  [state]
   (when-not @listeners-initialized?
     (.addEventListener
       js/window
       "keydown"
-      #(k/handle-keypress! % s/state))
+      #(k/handle-keypress! % state))
 
     (.addEventListener
       js/window
@@ -25,33 +25,33 @@
     (.addEventListener
       (js/document.getElementById "file")
       "change"
-      #(s/load-save-file! s/state %))
+      #(s/load-save-file! state %))
 
     (.addEventListener
       js/window
       "mousedown"
-      #(k/handle-mousedown! % s/state))
+      #(k/handle-mousedown! % state))
     (reset! listeners-initialized? true)))
 
-(defn render-app []
+(defn render-app [state]
   (r/render-component
-    [ui/main-ui (s/get-player s/state :scheme) (:slices @s/state) s/state]
+    [ui/main-ui (s/get-player state :scheme) (:slices @state) state]
     (.getElementById js/document "app")))
 
-(defn load-state []
+(defn load-state [state]
   "Discover and load any saved state."
   (let [found-frames (s/recover-frames-or-make-new!)]
-    (s/set-frames! found-frames s/state)
-    (s/set-used-frames! found-frames s/state)))
+    (s/set-frames! found-frames state)
+    (s/set-used-frames! found-frames state)))
 
-(defn init-app []
+(defn init-app [state]
   "Set the initial conditions and start the app."
-  (register-listeners)
-  (load-state)
-  (render-app))
+  (register-listeners state)
+  (load-state state)
+  (render-app state))
 
 (defn on-js-reload []
   "It would be nice if this were in dev.cljs automatically, somehow."
   (register-listeners))
 
-(init-app)
+(init-app s/state)

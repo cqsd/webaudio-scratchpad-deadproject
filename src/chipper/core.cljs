@@ -1,9 +1,8 @@
 (ns chipper.core
   (:require [chipper.audio :refer [create-audio-context]]
-            [chipper.keyboard :as k]
-            [chipper.keyboard2 :as k2]
             [chipper.ui :as ui]
             [chipper.state :as s]
+            [chipper.actions :as a]
             [reagent.core :as r]
             [cljs.core.async :refer [chan]]))
 
@@ -44,7 +43,7 @@
     (.addEventListener
       js/window
       "keydown"
-      #(k2/handle-keypress! % state))
+      #(a/handle-keypress! % state))
 
     (.addEventListener
       js/window
@@ -59,7 +58,7 @@
     (.addEventListener
       js/window
       "mousedown"
-      #(k/handle-mousedown! % state))
+      #(a/handle-mousedown! % state))
     (reset! listeners-initialized? true)))
 
 (defn render-app []

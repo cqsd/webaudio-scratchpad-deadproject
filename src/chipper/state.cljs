@@ -1,12 +1,10 @@
 (ns chipper.state
   (:require [clojure.string :refer [split-lines]]))
 
-(defn reset-cursor! [state]
-  "Set the cursor position to top left."
-  (swap! state assoc
-         :active-line 0
-         :active-chan 0
-         :active-attr 0))
+(defn cursor-position [state]
+  [(:active-line @state)
+   (:active-chan @state)
+   (:active-attr @state)])
 
 (defn set-frame-used?! [frame state]
   "If :frame is used, mark it as such in :state."

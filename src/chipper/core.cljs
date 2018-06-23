@@ -31,23 +31,27 @@
       js/window
       "mousedown"
       #(k/handle-mousedown! % state))
-    (reset! listeners-initialized? true)))
+    (reset! listeners-initialized? true))
+  state)
 
 (defn render-app [state]
   (r/render-component
     [ui/main-ui (s/get-player state :scheme) (:slices @state) state]
-    (.getElementById js/document "app")))
+    (.getElementById js/document "app"))
+  state)
 
 (defn load-state [state]
   "Discover and load any saved state."
   (let [found-frames (s/recover-frames-or-make-new!)]
     (s/set-frames! found-frames state)
-    (s/set-used-frames! found-frames state)))
+    (s/set-used-frames! found-frames state))
+  state)
 
 (defn init-app [state]
   "Set the initial conditions and start the app."
-  (register-listeners state)
-  (load-state state)
-  (render-app state))
+  (-> state
+    register-listeners
+    load-state
+    render-app))
 
 (init-app s/state)

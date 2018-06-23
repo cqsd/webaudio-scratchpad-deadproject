@@ -28,15 +28,21 @@
    :ShiftBracketRight [:frame  1]
    :ShiftBracketLeft  [:frame -1]
 
-   :KeyG              [:absolute-position [:first :first :first]]
-   :ShiftKeyG         [:absolute-position [:last  :last  :last]]
-   :Digit0            [:absolute-position [:first :first :first]]
-   :ShiftDigit4       [:absolute-position [:last  :last  :last]]
+   :ShiftKeyG         [:motion :end]
+   :KeyG              [:motion :beginning]
+   :ShiftDigit4       [:motion :bottom]
+   :Digit0            [:motion :top]
 
    :KeyI              [:mode :edit]
    :KeyV              [:mode :visual]
 
    :KeyX              [:macro [[:attr nil] [:motion :down-line]]]
+
+   :ShiftPeriod       [:bpm :up-one]
+   :ShiftComma        [:bpm :down-one]
+
+   :Minus             [:octave :down-one]
+   :Equal             [:octave :up-one]
 
    :Space             [:play-pause]})
 
@@ -60,10 +66,10 @@
    :Backspace [:macro [[:attr nil] [:motion :up-line]]]
    :Space     [:motion :down-line]
 
-   :Escape    [:mode :normal]
+   :Minus             [:octave :down-one]
+   :Equal             [:octave :up-one]
 
-   :Minus     [:octave :up-octave]
-   :Equal     [:octave :down-octave]})
+   :Escape    [:mode :normal]})
 
 (def visual-keymap
   {:Escape [:mode :normal]})

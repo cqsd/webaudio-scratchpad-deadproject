@@ -22,15 +22,19 @@
          :active-attr attr))
 
 (defn set-frame!
-  "Frame setter. Prefer using this over swap!-ing the state atom directly."
   [frame state]
   (swap! state assoc :active-frame frame))
 
 (defn set-attr!
-  "Attribute setter. Prefer using this over swap!-ing the state atom directly."
   [[line chan attr] frame value state]
   (swap! state update-in [:slices frame line chan]
          #(assoc % attr value)))
+
+(defn set-octave! [octave state]
+  (swap! state assoc :octave octave))
+
+(defn set-bpm! [bpm state]
+  (swap! state assoc :bpm bpm))
 
 ;; canned state operations
 (defn reset-cursor! [state]
@@ -38,14 +42,13 @@
   (set-cursor-position! [0 0 0] state))
 
 (defn set-absolute-position!
-  "bit of potentially confusing naming, given the existence of set-cursor-position!"
+  "Potentially confusing naming, given the existence of set-cursor-position!"
   [params state]
   (js/alert "not implemented!"))
 
 (defn set-relative-position!
-  "This is still a mess, sort of"
+  "This is still a mess."
   [motion state]
-  ;; ever heard of select-keys?
   (let [[dline dchan dattr] (const/motions motion)
         [line chan attr] (s/cursor-position state)
         next-line (u/bounded-add (dec const/frame-length) line dline)
@@ -85,9 +88,17 @@
   ;; and this means set-attr-at-cursor! could either be a macro, or,,,,,
   (set-relative-position! (:down-line const/motions) state))
 
-(defn set-octave!
-  [params state]
-  (js/alert "not implemented!"))
+(defn set-relative-octave!
+  [direction state]
+  (set-octave!
+    (+ (:octave @state) (const/-garbage direction))
+    state))
+
+(defn set-relative-bpm!
+  [direction state]
+  (set-bpm!
+    (+ (:bpm @state) (const/-garbage direction))
+    state))
 
 (defn play-pause! [_ state] ; uh oh
   (c/play-track state (:player @state)))
@@ -109,7 +120,8 @@
    :absolute-position set-absolute-position!
    :frame set-relative-frame!
    :attr set-attr-at-cursor!
-   :octave set-octave!
+   :octave set-relative-octave!
+   :bpm set-relative-bpm!
    :play-pause play-pause!
    :macro macro!})
 

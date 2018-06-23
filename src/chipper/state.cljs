@@ -1,6 +1,5 @@
 (ns chipper.state
-  (:require [clojure.string :refer [split-lines]]
-            [chipper.notes :as notes]))  ; not good to require this in utils
+  (:require [clojure.string :refer [split-lines]]))
 
 (defn reset-cursor! [state]
   "Set the cursor position to top left."
@@ -29,7 +28,7 @@
                              (nil? note) "-"
                              (= :off note) "o"
                              (= :stop note) "s"
-                             :else (.toString (note notes/note-steps) 16))
+                             :else (.toString note 16))
                  octavestr (or octave "-")
                  gainstr   (or gain "-")]
              (str notestr octavestr gainstr)))))
@@ -44,13 +43,11 @@
   one frame per line
   each slice is a sequence of four notes
   each note is a sequence of 3 characters
-   - note is 0-B (0-11) inclusive; o for :off, s for :stop
+   - note is 0-11 inclusive; o for :off, s for :stop
    - octave is 0-9 inclusiv
    - gain is 0-9 inclusive"
   [frames]
   (apply str (interpose "\n" (map serialize-frame frames))))
-
-(def note-reverse-map (zipmap (vals notes/note-steps) (keys notes/note-steps)))
 
 (defn deserialize-slice [serialized-slice]
   (vec
@@ -59,7 +56,7 @@
                       (= "-" note-) nil
                       (= "o" note-) :off
                       (= "s" note-) :stop
-                      :else (note-reverse-map (js/parseInt note- 16)))
+                      :else (js/parseInt note- 16))
             octave  (cond
                       (= "-" octave-) nil
                       :else (js/parseInt octave-))

@@ -35,7 +35,7 @@
 
 (defn render-app []
   (r/render-component
-    [ui/main-ui (:scheme @s/state) (:slices @s/state) s/state]
+    [ui/main-ui (s/get-player s/state :scheme) (:slices @s/state) s/state]
     (.getElementById js/document "app")))
 
 (defn load-state []

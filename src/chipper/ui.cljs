@@ -35,10 +35,10 @@
     " "
     [:span {:id :play
             :class (str "button"
-                        (when (:track-chan @(:player @state))
+                        (when (:track-chan (:player @state))
                           " bright-text"))
-            :on-click #(c/play-track state (:player @state))}
-     (if (:track-chan @(:player @state)) "pause" "play")] " "]])
+            :on-click #(c/play-track state)}
+     (if (:track-chan (:player @state)) "pause" "play")] " "]])
 
 (defn channel
   "One line of attributes for a single channel."
@@ -112,16 +112,14 @@
          [channel attrs chan-id chan-active? state]))]
      [frame-hex line-number hex state]]))
 
-;; need to refactor some shit so this doesn't need to take state AND player
 (defn main-ui
   "Main UI. Combines scheme, track, controls, modeline, etc.
   `scheme` is a list of keywords defining the channel instruments and order
   `slices` is a vector of vectors containing note attributes (not a good name)
   `state` is the current uh... XXX I don't remember
-  `player` is??? I don't remember wtf"
-  [scheme slices state player]
+  "
+  [scheme slices state]
   [:div#main-ui
-   ; [main-controls state player]
    [:div#tracker
     [scheme-line scheme]
     [:div#slices

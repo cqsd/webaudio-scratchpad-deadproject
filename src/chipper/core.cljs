@@ -8,20 +8,9 @@
 
 (enable-console-print!)
 
-(def player
-  (r/atom
-    {:audio-context (create-audio-context)
-     :chip nil
-     :track-chan nil
-     :note-chip nil  ; for playing single notes when keys are pressed
-     :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
-     :scheme [:square :square :triangle :sawtooth]}))
-
 (def state
   (r/atom
-    {:scheme (:scheme @player) ; spaghetti; TODO find where used and point
-                               ; to :player :scheme instead
-     :slices (s/empty-frames)
+    {:slices (s/empty-frames)
      :active-line 0
      :active-chan 0
      :active-attr 0
@@ -31,7 +20,12 @@
      :octave 4
      :bpm 100
      :mode :normal
-     :player player})) ; spaghetti
+     :player {:audio-context (create-audio-context)
+              :chip nil
+              :track-chan nil
+              :note-chip nil  ; for playing single notes when keys are pressed
+              :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
+              :scheme [:square :square :triangle :sawtooth]}}))
 
 (defonce listeners-initialized? (atom nil))
 
@@ -62,7 +56,7 @@
 
 (defn render-app []
   (r/render-component
-    [ui/main-ui (:scheme @state) (:slices @state) state player]
+    [ui/main-ui (:scheme @state) (:slices @state) state]
     (.getElementById js/document "app")))
 
 (defn load-state []

@@ -13,6 +13,18 @@
     {:scheme scheme
      :channels (a/create-osc-channels! audio-context scheme)}))
 
+; TODO UNFUCK STATE HANDLING
+(defn get-player
+  [state attr]
+  (get-in @state [:player attr]))
+
+(defn update-player
+  [state attr value]
+  (swap! state update-in [:player attr] (constantly value)))
+
+(defn chip-for-state [state]
+  (create-chip! (get-player state :scheme) (get-player state :audio-context)))
+
 (defn chip-off! [chip]
   (doseq [channel (:channels chip)]
     (a/chan-off! channel))
@@ -45,15 +57,15 @@
 
 (defn stop-track!
   "Close the track channel and disconnect the chip."
-  [state player chip]
-  (do (when-let [track (:track-chan @player)]
+  [state chip]
+  (do (when-let [track (get-player state :track-chan)]
         (close! track))
       (chip-off! chip)
-      (swap! player assoc :track-chan nil)))
+      (update-player state :track-chan nil)))
 
 (defn play-track!-
   "oh my god"
-  [state player chip track]
+  [state chip track]
   (go-loop []
            (when-let [[frame line slice] (<! track)]  ; <! is nil on closed chan
              (prn (str "slice id " frame " " line))
@@ -65,10 +77,10 @@
                     :active-line line)
              (let [notes (filter identity (map (comp first first) slice))]
                (if (some (partial = :stop) notes)
-                 (stop-track! state player chip)
+                 (stop-track! state chip)
                  (do (set-chip-attrs! chip slice)
                      (recur)))))
-           (stop-track! state player chip)))
+           (stop-track! state chip)))
 
 ;; TODO XXX FIXME this can be refactored with delayed-coll-chan
 ;; in fact, a yank-put is basically all that's needed
@@ -78,7 +90,7 @@
 ;; only fire 1x per second at max (applies to all major browsers i think)
 ;; reason to do this in a go-loop is because it blocks otherwise
 (defn play-track
-  ([state player] ; default is to play the "track" from the editor
+  ([state] ; default is to play the "track" from the editor
    (let [interval (/ 15000 (:bpm @state))
          ;; ok this enumerate is the hack for changing frame numbers as we go
          ;; god damn. We do a drop to start at the current frame
@@ -89,20 +101,21 @@
                                                      (:active-frame @state))]
                           (for [[slice j] (u/enumerate frame)] [i j slice])))
                  interval)]
-     (play-track state player track)))
+     (play-track state track)))
 
-  ([state player track] ; can pass your own track
-  (if-not (:track-chan @player)
-    (let [chip (if-let [chip- (:chip @player)]
+  ([state track] ; can pass your own track
+  (if-not (get-player state :track-chan)
+    (let [chip (if-let [chip- (get-player state :chip)]
                  chip-
-                 (create-chip! (:scheme @state) (:audio-context @player)))]
+                 (chip-for-state state))]
       (chip-off! chip)  ; XXX don't remember why this is necessary, if at all
-      (swap! player assoc :chip chip :track-chan track)
-      (play-track!- state player chip track))
+      (update-player state :chip chip)
+      (update-player state :track-chan track)
+      (play-track!- state chip track))
     ;; see all these repeated stop-track! ?
     ;; this function is misnamed; it should be called play-pause-track
     ;; and it needs a refactor but so does everything else in this project
-    (stop-track! state player (:chip @player)))))
+    (stop-track! state (get-player state :chip)))))
 
 ;take everything off the chan
 ;turn off the chip
@@ -110,13 +123,14 @@
 ;turn the chip on
 (defn play-slice!
   "more delicious spaghetti for playing single line when you enter a note"
-  [state player [line & _ :as active-position]]
-  (when-not (:note-chip @player)
-    (swap! player assoc
-           :note-chip (create-chip! (:scheme @state) (:audio-context @player))))
-  (let [ch-    (:note-chan @player)
-        ch     (:note-chan (swap! player assoc :note-chan (async/chan)))
-        chip   (:note-chip @player)
+  [state [line & _ :as active-position]]
+  (when-not (get-player state :note-chip)
+    (update-player state :note-chip (chip-for-state state)))
+  (let [ch-    (get-player state :note-chan)
+        ch     (do
+                 (update-player state :note-chan (async/chan))
+                 (get-player state :note-chan))
+        chip   (get-player state :note-chip)
         slice  (get-in @state [:slices (:active-frame @state) line])
         track- [[0 0 slice] [0 0 [[[:off nil]] nil nil]]]]
     (chip-off! chip)

@@ -43,13 +43,13 @@
     common-mappings
     {:edit-attr
      (merge
-       {:KeyA :C   :ShiftKeyA :C# :KeyW :C#
-        :KeyS :D   :ShiftKeyS :D# :KeyE :D#
-        :KeyD :E
-        :KeyF :F   :ShiftKeyF :F# :KeyT :F#
-        :KeyG :G   :ShiftKeyG :G# :KeyY :G#
-        :KeyH :A   :ShiftKeyH :A# :KeyU :A#
-        :KeyJ :B
+       {:KeyA 0   :ShiftKeyA 1 :KeyW 1
+        :KeyS 2   :ShiftKeyS 3 :KeyE 3
+        :KeyD 4
+        :KeyF 5   :ShiftKeyF 6 :KeyT 6
+        :KeyG 7   :ShiftKeyG 8 :KeyY 8
+        :KeyH 9   :ShiftKeyH 10 :KeyU 10
+        :KeyJ 11
         :KeyX :off
         :ShiftKeyX :stop
         :Backspace :delete-above}

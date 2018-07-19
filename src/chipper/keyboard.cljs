@@ -1,8 +1,4 @@
-(ns chipper.keyboard
-  (:require [chipper.utils :as u]
-            [chipper.chips :as c]
-            [chipper.state :as s]
-            [goog.events :as events]))
+(ns chipper.keyboard)
 
 ;; TODO namespace the keywords to constants
 
@@ -66,8 +62,8 @@
    :Backspace [:macro [[:attr nil] [:motion :up-line]]]
    :Space     [:motion :down-line]
 
-   :Minus             [:octave :down-one]
-   :Equal             [:octave :up-one]
+   :Minus     [:octave :down-one]
+   :Equal     [:octave :up-one]
 
    :Escape    [:mode :normal]})
 

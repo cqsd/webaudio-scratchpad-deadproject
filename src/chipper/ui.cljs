@@ -8,6 +8,8 @@
 
 
 ;; TODO FIXME: everything is relative to :C right now.
+
+
 (defn note-name [semitone] (name (n/name-rel :C semitone)))
 
 (defn scheme-line [scheme]
@@ -81,8 +83,8 @@
 
 (defn line-hex [hex bright?]
   [:span [:span
-   {:class (when bright? :bright-text)}
-   (str " " hex " ")] ""])  ; savage
+          {:class (when bright? :bright-text)}
+          (str " " hex " ")] ""])  ; savage
 
 (defn frame-hex [line-number hex state]
   [:span.attr
@@ -100,16 +102,16 @@
         bright? (zero? (mod line-number 4))]
     [:pre.slice {:id line-id}
      [:span      {:class (when line-active? :active-line)}
-     [line-hex hex bright?]
-     (let [active-chan (if line-active?
-                         (:active-chan @state)
-                         -1)]
-       (for [[attrs chan-number] (map vector slice (range))
-             :let [chan-active? (and line-active?
-                                     (= chan-number active-chan))
-                   chan-id (str line-number "-" chan-number)]]
-         ^{:key chan-id}
-         [channel attrs chan-id chan-active? state]))]
+      [line-hex hex bright?]
+      (let [active-chan (if line-active?
+                          (:active-chan @state)
+                          -1)]
+        (for [[attrs chan-number] (map vector slice (range))
+              :let [chan-active? (and line-active?
+                                      (= chan-number active-chan))
+                    chan-id (str line-number "-" chan-number)]]
+          ^{:key chan-id}
+          [channel attrs chan-id chan-active? state]))]
      [frame-hex line-number hex state]]))
 
 (defn main-ui
@@ -130,10 +132,10 @@
              :let [line-id (str "line-" line-number)]]
          ^{:key line-id}
          [line slice
-               line-id
-               line-number
-               (= line-number active-line)
-               state]))]
+          line-id
+          line-number
+          (= line-number active-line)
+          state]))]
     [modeline
      (apply str
             [" " "bpm" (:bpm @state)

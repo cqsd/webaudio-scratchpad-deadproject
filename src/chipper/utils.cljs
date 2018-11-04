@@ -37,4 +37,4 @@
   ;; arbitrary multiplier because oscillators are loud and this works through
   ;; my headphones
   (* 0.05 (or (get [0 0.11 0.22 0.33 0.44 0.55 0.66 0.77 0.88 1] digit)
-             0.55))) ;; arbitrary
+              0.55))) ;; arbitrary

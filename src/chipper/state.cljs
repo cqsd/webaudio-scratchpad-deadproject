@@ -11,22 +11,22 @@
 
 (def state
   (r/atom
-    {:slices (empty-frames)
-     :active-line 0
-     :active-chan 0
-     :active-attr 0
-     :active-frame 0
-     :frame-edited nil
-     :used-frames (vec (repeat 32 nil)) ; for indicating on the right
-     :octave 4
-     :bpm 100
-     :mode :normal
-     :player {:audio-context (create-audio-context)
-              :chip nil
-              :track-chan nil
-              :note-chip nil  ; for playing single notes when keys are pressed
-              :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
-              :scheme [:square :square :triangle :sawtooth]}}))
+   {:slices (empty-frames)
+    :active-line 0
+    :active-chan 0
+    :active-attr 0
+    :active-frame 0
+    :frame-edited nil
+    :used-frames (vec (repeat 32 nil)) ; for indicating on the right
+    :octave 4
+    :bpm 100
+    :mode :normal
+    :player {:audio-context (create-audio-context)
+             :chip nil
+             :track-chan nil
+             :note-chip nil  ; for playing single notes when keys are pressed
+             :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
+             :scheme [:square :square :triangle :sawtooth]}}))
 
 (defn get-player
   [state attr]
@@ -107,8 +107,8 @@
   [dframe state]
   (let [frame (:active-frame @state)]
     (set-frame!
-      (u/bounded-add (dec const/frame-count) frame dframe)
-      state)))
+     (u/bounded-add (dec const/frame-count) frame dframe)
+     state)))
 
 (defn set-attr-at-cursor!
   ;; so value-'ll get renamed next patch to actually be meaninful, re set-attr!
@@ -130,19 +130,19 @@
 (defn set-relative-octave!
   [direction state]
   (set-octave!
-    (+ (:octave @state) (const/-garbage direction))
-    state))
+   (+ (:octave @state) (const/-garbage direction))
+   state))
 
 (defn set-relative-bpm!
   [direction state]
   (set-bpm!
-    (+ (:bpm @state) (const/-garbage direction))
-    state))
+   (+ (:bpm @state) (const/-garbage direction))
+   state))
 
 (defn nonempty-frames [state]
   (keep-indexed
-    (fn [i v] (when v (get-in @state [:slices i])))
-    (:used-frames @state)))
+   (fn [i v] (when v (get-in @state [:slices i])))
+   (:used-frames @state)))
 
 (defn serialize-slice [slice]
   (apply str
@@ -174,20 +174,20 @@
 
 (defn deserialize-slice [serialized-slice]
   (vec
-    (for [[note- octave- gain-] (partition 3 serialized-slice)]
-      (let [note    (cond
-                      (= "-" note-) nil
-                      (= "o" note-) :off
-                      (= "s" note-) :stop
-                      :else (js/parseInt note- 16))
-            octave  (cond
-                      (= "-" octave-) nil
-                      :else (js/parseInt octave-))
-            gain    (cond
-                      (= "-" gain-) nil
-                      :else (js/parseInt gain-))]
+   (for [[note- octave- gain-] (partition 3 serialized-slice)]
+     (let [note    (cond
+                     (= "-" note-) nil
+                     (= "o" note-) :off
+                     (= "s" note-) :stop
+                     :else (js/parseInt note- 16))
+           octave  (cond
+                     (= "-" octave-) nil
+                     :else (js/parseInt octave-))
+           gain    (cond
+                     (= "-" gain-) nil
+                     :else (js/parseInt gain-))]
         ; if both nil, just give nil insead of [nil nil] for note
-        [(when-not (nil? (or note octave)) [note octave]) gain nil]))))
+       [(when-not (nil? (or note octave)) [note octave]) gain nil]))))
 
 (defn deserialize-frame [serialized-frame]
   (vec (map deserialize-slice (partition (* 4 3) serialized-frame))))
@@ -204,8 +204,8 @@
 (defn save-local! [state]
   (try
     (do (.setItem js/localStorage
-             "state"
-             (serialize-compressed (:slices @state)))
+                  "state"
+                  (serialize-compressed (:slices @state)))
         (swap! state assoc :frame-edited nil))
     (catch js/Error e
       (prn "Couldn't save to local storage."))))
@@ -237,7 +237,7 @@
     (save-local! state)
     (try
       (do (prn data-url)
-        (js/window.open data-url "save")
+          (js/window.open data-url "save")
           (swap! state assoc :frame-edited nil))
       (catch js/Error e
         (js/alert "Error saving. Tough luck.")))))

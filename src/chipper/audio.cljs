@@ -95,7 +95,7 @@
     (.setValueAtTime (.-frequency source)
                      frequency
                      (.-currentTime (:context channel)))
-  channel))
+    channel))
 
 ;; TODO I don't know what gain-digit is, and I'd like to find out
 (defn set-gain! [channel gain-digit]

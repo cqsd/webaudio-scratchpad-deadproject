@@ -10,8 +10,8 @@
   "Just returns a vector of output-connected sources for now."
   ([scheme] (create-chip! scheme (a/create-audio-context)))
   ([scheme audio-context]
-    {:scheme scheme
-     :channels (a/create-osc-channels! audio-context scheme)}))
+   {:scheme scheme
+    :channels (a/create-osc-channels! audio-context scheme)}))
 
 (defn chip-for-state [state]
   (create-chip! (get-player state :scheme) (get-player state :audio-context)))
@@ -58,20 +58,20 @@
   "oh my god"
   [state chip track]
   (go-loop []
-           (when-let [[frame line slice] (<! track)]  ; <! is nil on closed chan
-             (prn (str "slice id " frame " " line))
+    (when-let [[frame line slice] (<! track)]  ; <! is nil on closed chan
+      (prn (str "slice id " frame " " line))
              ; XXX this swap is the only reason to pass state in here;
              ; find a way to remove it (e.g. by using core async the *intended*
              ; way
-             (swap! state assoc
-                    :active-frame frame
-                    :active-line line)
-             (let [notes (filter identity (map (comp first first) slice))]
-               (if (some (partial = :stop) notes)
-                 (stop-track! state chip)
-                 (do (set-chip-attrs! chip slice)
-                     (recur)))))
-           (stop-track! state chip)))
+      (swap! state assoc
+             :active-frame frame
+             :active-line line)
+      (let [notes (filter identity (map (comp first first) slice))]
+        (if (some (partial = :stop) notes)
+          (stop-track! state chip)
+          (do (set-chip-attrs! chip slice)
+              (recur)))))
+    (stop-track! state chip)))
 
 ;; TODO XXX FIXME this can be refactored with delayed-coll-chan
 ;; in fact, a yank-put is basically all that's needed
@@ -86,27 +86,27 @@
          ;; ok this enumerate is the hack for changing frame numbers as we go
          ;; god damn. We do a drop to start at the current frame
          track (u/delayed-chan
-                 (apply concat ; generate [[frame line slice]...]
-                        (for [[frame i] (u/enumerate (drop (:active-frame @state)
-                                                           (:slices @state))
-                                                     (:active-frame @state))]
-                          (for [[slice j] (u/enumerate frame)] [i j slice])))
-                 interval)]
+                (apply concat ; generate [[frame line slice]...]
+                       (for [[frame i] (u/enumerate (drop (:active-frame @state)
+                                                          (:slices @state))
+                                                    (:active-frame @state))]
+                         (for [[slice j] (u/enumerate frame)] [i j slice])))
+                interval)]
      (play-track state track)))
 
   ([state track] ; can pass your own track
-  (if-not (get-player state :track-chan)
-    (let [chip (if-let [chip- (get-player state :chip)]
-                 chip-
-                 (chip-for-state state))]
-      (chip-off! chip)  ; XXX don't remember why this is necessary, if at all
-      (update-player state :chip chip)
-      (update-player state :track-chan track)
-      (play-track!- state chip track))
+   (if-not (get-player state :track-chan)
+     (let [chip (if-let [chip- (get-player state :chip)]
+                  chip-
+                  (chip-for-state state))]
+       (chip-off! chip)  ; XXX don't remember why this is necessary, if at all
+       (update-player state :chip chip)
+       (update-player state :track-chan track)
+       (play-track!- state chip track))
     ;; see all these repeated stop-track! ?
     ;; this function is misnamed; it should be called play-pause-track
     ;; and it needs a refactor but so does everything else in this project
-    (stop-track! state (get-player state :chip)))))
+     (stop-track! state (get-player state :chip)))))
 
 ;take everything off the chan
 ;turn off the chip
@@ -131,8 +131,8 @@
         (>! ch [0 0 [[[:off nil]] nil nil]])
         (close! ch))
     (go-loop []
-             (when-let [[frame line slice] (<! ch)]
-               (let [notes (filter identity (map (comp first first) slice))]
-                 (do (set-chip-attrs! chip slice)
-                     (recur))))
-             (chip-off! chip))))
+      (when-let [[frame line slice] (<! ch)]
+        (let [notes (filter identity (map (comp first first) slice))]
+          (do (set-chip-attrs! chip slice)
+              (recur))))
+      (chip-off! chip))))

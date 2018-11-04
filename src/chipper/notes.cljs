@@ -29,6 +29,8 @@
 
 
 ;; realistically don't need this much precision
+
+
 (def twelfth-root-of-2 1.059)
 ;; (def twelfth-root-of-2 (js/Math.pow 2 (/ 1 12)))
 

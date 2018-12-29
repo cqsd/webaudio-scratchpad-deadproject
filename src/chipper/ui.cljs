@@ -95,18 +95,18 @@
 
 ;; XXX this needs to 1: be its own column (flex div) on the right instead
 ;; of part of the line; it's slowing redraws way too much
-(defn frame-hex [line-number window-index state]
-  "The high-level view on the right side of the editor"
-  (let [active-frame (quot line-number const/frame-length)
-        frame-number (+ window-index active-frame)
-        hex (number->hex frame-number)]
-    [:span.attr
-     {:id (str frame-number "-f") ; i guess -f for -frame?
-      ;; af is inconsistent with active-attr FYI
-      :class (str "ps"
-                  (when (= frame-number active-frame) " active-attr af")
-                  (comment (when ((:used-frames @state) frame-number) " bright-text")))}
-     (str " " hex " ")]))
+(comment (defn frame-hex [line-number window-index state]
+           "The high-level view on the right side of the editor"
+           (let [active-frame (quot line-number const/frame-length)
+                 frame-number (+ window-index active-frame)
+                 hex (number->hex frame-number)]
+             [:span.attr
+              {:id (str frame-number "-f") ; i guess -f for -frame?
+               ;; af is inconsistent with active-attr FYI
+               :class (str "ps"
+                           (when (= frame-number active-frame) " active-attr af")
+                           (comment (when ((:used-frames @state) frame-number) " bright-text")))}
+              (str " " hex " ")])))
 
 (defn track-map
   "a high-level view of which 'pages' have notes in the track;
@@ -148,7 +148,7 @@
               view-end] (u/bounded-range
                          (:active-line @state)
                          (quot const/frame-length 2)
-                         const/max-line-count
+                         (count (:slices @state))
                          0)
              view (subvec (:slices @state) view-start view-end)]
          (for [[slice line-number window-index]

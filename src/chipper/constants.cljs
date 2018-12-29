@@ -26,12 +26,15 @@
    :down-measure   [measure-size 0 0]
    :up-measure     [(- measure-size) 0 0]
 
+   :down-frame     [frame-length 0 0]
+   :up-frame       [-frame-length 0 0]
+
    ;; see above confusion; why is it a dattr?
    :line-end       [0 0 (* attr-count chan-count)]
    :line-beginning [0 1 (- (* attr-count chan-count))]
 
-   :end            [last-position 0 0]
-   :beginning      [(- max-line-count) 0 0]})
+   :end            [js/Infinity 0 0]
+   :beginning      [(- js/Infinity) 0 0]})
 
 (def -garbage
   {:up-one    1

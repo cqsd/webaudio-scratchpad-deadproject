@@ -1,10 +1,11 @@
 (ns chipper.state
   (:require [clojure.string :refer [split-lines]]
-            [cljs.core.async :refer [chan]]
-            [reagent.core :as r]
             [chipper.audio :refer [create-audio-context]]
+            [chipper.chips :as c]
             [chipper.constants :as const]
-            [chipper.utils :as u]))
+            [chipper.utils :as u]
+            [cljs.core.async :refer [chan]]
+            [reagent.core :as r]))
 
 (defn empty-frames []
   (vec (repeat const/max-line-count (vec (repeat 4 [nil nil nil])))))
@@ -38,7 +39,7 @@
     :active-line 0
     :active-chan 0
     :active-attr 0
-    :active-frame 0
+    ; :active-frame 0
     :frame-edited nil
     ;; TL new
     ;; the state handlers (should) set this to true if you make any change
@@ -78,27 +79,30 @@
 
 (defn set-cursor-position!
   [[line chan attr] state]
-  (swap! state assoc
-         :active-line line
-         :active-chan chan
-         :active-attr attr))
-
-(defn set-frame!
-  [frame state]
-  ;; gonna feel good to delete the active-frame line when we
-  ;; stop tracking active frame separately...
-  (let [active-line (min const/max-line-count (* frame const/frame-length))
-        ;; this is a bug by the way, it should be more like.
-        ;; (round (/ ...)) but I don't care, as long as I can
-        ;; see what im doing >.>
-        ]
+  ;; XXX hax
+  (let [m (dec (count (:slices @state)))
+        l (max (min line m) 0)]
     (swap! state assoc
-           :active-line active-line
-           :active-frame frame)
-    (prn @state)))
+           :active-line l
+           :active-chan chan
+           :active-attr attr)))
+
+(comment (defn set-frame!
+           [frame state]
+           ;; gonna feel good to delete the active-frame line when we
+           ;; stop tracking active frame separately...
+           (let [active-line (min (count (:slices @state)) (* frame const/frame-length))
+                 ;; this is a bug by the way, it should be more like.
+                 ;; (round (/ ...)) but I don't care, as long as I can
+                 ;; see what im doing >.>
+                 ]
+             (swap! state assoc
+                    :active-line active-line
+                    :active-frame frame)
+             (prn @state))))
 
 (defn set-attr!
-  [[line chan attr] _frame value state]
+  [[line chan attr] value state]
   (swap! state update-in [:slices line chan]
          #(assoc % attr value)))
 
@@ -123,7 +127,7 @@
   [motion state]
   (let [[dline dchan dattr] (const/motions motion)
         [line chan attr] (cursor-position state)
-        next-line (u/bounded-add const/last-position line dline)
+        next-line (u/bounded-add (count (:slices @state)) line dline)
         ;; use this until the composer state representation gets fixed...
         cursor-attr-pos (+ (* const/attr-count chan) attr)
         ;; a plain mod of attr + dattr would cause the cursor to cycle in the first
@@ -144,18 +148,17 @@
                          ((:slices @state) frame)))))
 
 ;; TODO set the frame-edited flag in state
-(defn set-relative-frame!
-  [dframe state]
-  (let [frame (:active-frame @state)]
-    (set-frame!
-     (u/bounded-add (dec const/frame-count) frame dframe)
-     state)))
+(comment (defn set-relative-frame!
+           [dframe state]
+           (let [frame (:active-frame @state)]
+             (set-frame!
+               (u/bounded-add (dec const/frame-count) frame dframe)
+               state))))
 
 (defn set-attr-at-cursor!
   ;; so value-'ll get renamed next patch to actually be meaninful, re set-attr!
   [value- state]
-  (let [frame (:active-frame @state)
-        ;; mhm, mhm, yeah, this is a thing that will change next patch
+  (let [;; mhm, mhm, yeah, this is a thing that will change next patch
         [_ _ attr :as position] (cursor-position state)
         ;; so for now, if the cursor's on the note, we insert [notename octave]
         ;; otherwise we insert NOTHING
@@ -165,8 +168,8 @@
                   [value- (:octave @state)]
                   [value- nil nil])
                 value-)]
-    (set-attr! position frame value state)
-    (comment (when playable (c/play-slice! state (:player @state) position)))))
+    (set-attr! position value state)
+    (when playable (c/play-slice! state (:player @state) position))))
 
 (defn set-relative-octave!
   [direction state]
@@ -197,9 +200,6 @@
                  gainstr   (or gain "-")]
              (str notestr octavestr gainstr)))))
 
-(defn serialize-frame [frame]
-  (apply str (mapcat serialize-slice frame)))
-
 ;; need to write a spec for this at some point
 (defn serialize-frames
   "Format is:
@@ -209,8 +209,8 @@
    - note is 0-11 inclusive; o for :off, s for :stop
    - octave is 0-9 inclusiv
    - gain is 0-9 inclusive"
-  [frames]
-  (apply str (interpose "\n" (map serialize-frame frames))))
+  [slices]
+  (apply str (interpose "\n" (map serialize-slice slices))))
 
 (defn deserialize-slice [serialized-slice]
   (vec
@@ -229,17 +229,25 @@
         ; if both nil, just give nil insead of [nil nil] for note
        [(when-not (nil? (or note octave)) [note octave]) gain nil]))))
 
-(defn deserialize-frame [serialized-frame]
-  (vec (map deserialize-slice (partition (* 4 3) serialized-frame))))
-
-(defn deserialize-frames [serialized-frames]
-  (into [] (map deserialize-frame (split-lines serialized-frames))))
+(defn deserialize-frames [serialized-slices]
+  (into [] (map deserialize-slice (split-lines serialized-slices))))
 
 (defn serialize-compressed [frames]
   (js/LZString.compressToBase64 (serialize-frames frames)))
 
+;; need these paginated ones for now just so we can convert old saves over
+;; not sure what that means
+(defn deserialize-frame [serialized-frame]
+  (vec (map deserialize-slice (partition (* 4 3) serialized-frame))))
+
+(defn deserialize-frames-old [serialized-frames]
+  (let [s (into [] (mapcat identity (into [] (map deserialize-frame (split-lines serialized-frames)))))]
+    (prn s)
+    (prn (count s))
+    s))
+
 (defn deserialize-compressed [compressed]
-  (deserialize-frames (js/LZString.decompressFromBase64 compressed)))
+  (deserialize-frames-old (js/LZString.decompressFromBase64 compressed)))
 
 (defn save-local! [state]
   (try
@@ -256,12 +264,13 @@
   (try
     (if-let [saved (saved-frame-state)]
       (let [found (deserialize-compressed (saved-frame-state))]
-        (if (= 32 (count found))
+        (if (= (count (:slices @state)) (count found))
           found
           (throw (js/Error. "Bad save"))))
       (empty-frames))
     (catch js/Error e
       (do (js/alert "Error recovering from local storage. Try loading a savefile.")
+          (prn e)
           (empty-frames)))))
 
 (defn set-frames! [frames state]

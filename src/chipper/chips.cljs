@@ -65,7 +65,7 @@
       ; find a way to remove it (e.g. by using core async the *intended*
       ; way
       (swap! state assoc
-             :active-frame (quot active-line const/frame-length)
+             ; :active-frame (quot active-line const/frame-length)
              :active-line active-line)
       (let [notes (filter identity (map (comp first first) slice))]
         (if (some (partial = :stop) notes)
@@ -113,25 +113,24 @@
 ;push shit on the chan
 ;turn the chip on
 (defn play-slice!
-  "more delicious spaghetti for playing single line when you enter a note"
-  [state [line & _ :as active-position]]
+  "hax to play note when you press a key"
+  [state player [line _ _]]
   (when-not (get-player state :note-chip)
     (update-player state :note-chip (chip-for-state state)))
-  (let [ch-    (get-player state :note-chan)
+  (let [old-ch (:note-chan (:player @state))
         ch     (do
                  (update-player state :note-chan (async/chan))
-                 (get-player state :note-chan))
+                 (:note-chan (:player @state)))
         chip   (get-player state :note-chip)
-        slice  (get-in @state [:slices (:active-frame @state) line])
-        track- [[0 0 slice] [0 0 [[[:off nil]] nil nil]]]]
+        slice  (get-in @state [:slices line])]
     (chip-off! chip)
-    (close! ch-)
-    (go (>! ch [0 0 slice])
+    (close! old-ch)
+    (go (>! ch slice)
         (<! (timeout 280))  ; in ms
-        (>! ch [0 0 [[[:off nil]] nil nil]])
+        (>! ch [[[:off nil]] nil nil])
         (close! ch))
     (go-loop []
-      (when-let [[frame line slice] (<! ch)]
+      (when-let [slice (<! ch)]
         (let [notes (filter identity (map (comp first first) slice))]
           (do (set-chip-attrs! chip slice)
               (recur))))

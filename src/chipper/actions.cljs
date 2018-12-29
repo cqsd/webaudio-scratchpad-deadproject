@@ -23,7 +23,7 @@
   {:mode s/set-mode!
    :motion s/set-relative-position!  ;; FIXME naming
    :absolute-position s/set-absolute-position!
-   :frame s/set-relative-frame!
+   ; :frame s/set-relative-frame!
    :attr s/set-attr-at-cursor!
    :octave s/set-relative-octave!
    :bpm s/set-relative-bpm!
@@ -50,10 +50,10 @@
     ;; This indicates the user clicked in the main area.
     (when (and (== 3 (count parsed-id)) (every? number? parsed-id))
       (s/set-cursor-position! parsed-id state))
-    (when (= "f" literal-chan)  ;; This indicates the user clicked on a page.
-      (swap! state assoc
-             :active-frame line)
-      (s/set-frame-used?! (:active-frame @state) state))))
+    (comment (when (= "f" literal-chan)  ;; This indicates the user clicked on a page.
+       (swap! state assoc
+              :active-frame line)
+       (s/set-frame-used?! (:active-frame @state) state)))))
 
 (def -movement-keys
   #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab :Backspace})

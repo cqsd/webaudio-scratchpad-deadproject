@@ -21,8 +21,9 @@
    :BracketRight      [:motion :right-chan]
    :BracketLeft       [:motion :left-chan]
 
-   :ShiftBracketRight [:frame 1]
-   :ShiftBracketLeft  [:frame -1]
+   ;; TODO
+   ; :ShiftBracketRight [:motion :down-frame]
+   ; :ShiftBracketLeft  [:motion :up-frame]
 
    :ShiftKeyG         [:motion :end]
    :KeyG              [:motion :beginning]
@@ -32,7 +33,8 @@
    :KeyI              [:mode :edit]
    :KeyV              [:mode :visual]
 
-   :KeyX              [:macro [[:attr nil] [:motion :up-line]]]
+   :KeyX              [:macro [[:attr nil] [:motion :down-line]]]
+   :ShiftKeyX         [:macro [[:motion :up-line] [:attr nil]]]
 
    :ShiftPeriod       [:bpm :up-one]
    :ShiftComma        [:bpm :down-one]

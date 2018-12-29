@@ -51,7 +51,6 @@
 
   But if you run up against a max/min bound, it'll give you that range
   'pressed up against' the boundary
-
                         |-center=0
       |-radius='5'      |           |-max=4
       |                 |           |
@@ -59,7 +58,7 @@
       |                             |
       |------return this range------|
 
-  And it respectes constraints on both sides
+  And it respects constraints on both sides
             |-min=4     |-center=0
  radius='5'-|           |           |-max=4
             |           |           |

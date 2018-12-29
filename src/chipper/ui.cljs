@@ -162,7 +162,6 @@
             window-index  ; hax for frame; it's the index of the line in the "window"
             state]))]
       [modeline
-       (str " " "bpm" (:bpm @state)
-            " " "octave" (:octave @state)
-            " " "frame" active-frame)
+       (str " bpm" (:bpm @state)
+            " octave" (:octave @state))
        state]]]))

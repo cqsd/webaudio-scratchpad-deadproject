@@ -240,14 +240,14 @@
 (defn deserialize-frame [serialized-frame]
   (vec (map deserialize-slice (partition (* 4 3) serialized-frame))))
 
-(defn deserialize-frames-old [serialized-frames]
-  (let [s (into [] (mapcat identity (into [] (map deserialize-frame (split-lines serialized-frames)))))]
-    (prn s)
-    (prn (count s))
-    s))
+(comment (defn deserialize-frames-old [serialized-frames]
+           (let [s (into [] (mapcat identity (into [] (map deserialize-frame (split-lines serialized-frames)))))]
+             (prn s)
+             (prn (count s))
+             s)))
 
 (defn deserialize-compressed [compressed]
-  (deserialize-frames-old (js/LZString.decompressFromBase64 compressed)))
+  (deserialize-frames (js/LZString.decompressFromBase64 compressed)))
 
 (defn save-local! [state]
   (try

@@ -1,6 +1,7 @@
 ;; this needs a HUGE refactor
 (ns chipper.chips
   (:require [chipper.audio :as a]
+            [chipper.constants :as const]
             [chipper.utils :as u]
             [chipper.state :refer [get-player update-player]]
             [cljs.core.async :refer [<! >! close! timeout] :as async])
@@ -58,14 +59,14 @@
   "oh my god"
   [state chip track]
   (go-loop []
-    (when-let [[frame line slice] (<! track)]  ; <! is nil on closed chan
-      (prn (str "slice id " frame " " line))
-             ; XXX this swap is the only reason to pass state in here;
-             ; find a way to remove it (e.g. by using core async the *intended*
-             ; way
+    (when-let [[slice active-line] (<! track)]  ; <! is nil on closed chan
+      (prn (str "slice id " active-line))
+      ; XXX this swap is the only reason to pass state in here;
+      ; find a way to remove it (e.g. by using core async the *intended*
+      ; way
       (swap! state assoc
-             :active-frame frame
-             :active-line line)
+             :active-frame (quot active-line const/frame-length)
+             :active-line active-line)
       (let [notes (filter identity (map (comp first first) slice))]
         (if (some (partial = :stop) notes)
           (stop-track! state chip)
@@ -82,15 +83,14 @@
 ;; reason to do this in a go-loop is because it blocks otherwise
 (defn play-track
   ([state] ; default is to play the "track" from the editor
+   ;; 15000 is 60000 (ms/min) / 4 (beats in a measure)
+   ;; gives duration of a single "line" (sixteenth note, sort of)
    (let [interval (/ 15000 (:bpm @state))
-         ;; ok this enumerate is the hack for changing frame numbers as we go
-         ;; god damn. We do a drop to start at the current frame
+         ;; XXX TODO FIXME this is getting the starting line on its own and it
+         ;; *shouldn't*
+         active-line (:active-line @state)
          track (u/delayed-chan
-                (apply concat ; generate [[frame line slice]...]
-                       (for [[frame i] (u/enumerate (drop (:active-frame @state)
-                                                          (:slices @state))
-                                                    (:active-frame @state))]
-                         (for [[slice j] (u/enumerate frame)] [i j slice])))
+                (u/enumerate (drop active-line (:slices @state)) active-line)
                 interval)]
      (play-track state track)))
 

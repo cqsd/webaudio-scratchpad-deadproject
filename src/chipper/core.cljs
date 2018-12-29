@@ -42,6 +42,7 @@
   (let [found-frames (s/recover-frames-or-make-new!)]
     (s/set-frames! found-frames state)
     (s/set-used-frames! found-frames state))
+  (prn (str "there are " (str (count (:slices @state))) " slices"))
   state)
 
 (defn init-app [state]

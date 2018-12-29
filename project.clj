@@ -19,7 +19,7 @@
               [{:id "dev"
                 :source-paths ["src"]
                 ;; inject figwheel into cljs build
-                :figwheel true
+                :figwheel true ; TODO we gotta fix this
                 :compiler {:main chipper.core
                            :asset-path "js/compiled/out"
                            :output-to "resources/public/js/chipper.js"

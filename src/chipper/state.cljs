@@ -7,8 +7,31 @@
             [chipper.utils :as u]))
 
 (defn empty-frames []
-  (vec (repeat 32 (vec (repeat 32 (vec (repeat 4 [nil nil nil])))))))
+  (vec (repeat const/max-line-count (vec (repeat 4 [nil nil nil])))))
 
+;; some explanation is due
+;; this documentation is written is very after-the-fact, so no types because i
+;; don't heckin remember them
+;; - scheme - a vector of WebAudio oscillator types [:sine :triangle ...]
+;; - chip - a vector of WebAudio oscillators, basically. I don't remember
+;; - note - a vector of [note-name volume unused]
+;;   - attr[ibute] - index into a note. might be better to do something a little
+;;     more OOP-like with real fields and getters and setters. maybe use to
+;;     represent notes instead of plain vectors? I dunno, haven't thought about
+;;     it
+;; - slice - a vector of notes. represents a single line in the editor
+;;   - chan[nel] - the column representing notes for a given oscillator;
+;;     the index in a slice vector (so in a scheme of [:sine :sawtooth], the
+;;     :sine channel is slice[0] and :sawtooth is slice[1])
+;; - frame - 32 slices. think of it like a "page"; it used to actually be
+;;   a vector of 32 slices, and the editor state was a vector of frames
+;;   (the whole editor state was "paginated"), but now it's just a logical
+;;   concept that's used to highlight stuff in the high-level view to the
+;;   right of the track
+;; - track - a vector of slices containing the entire state of the editor;
+;;   represents your composition as a whole
+;; - player - a map of the audio context, the chip, the core.async channel
+;;   used to get nonblocking playback, the scheme, and some other hax
 (def state
   (r/atom
    {:slices (empty-frames)
@@ -17,15 +40,21 @@
     :active-attr 0
     :active-frame 0
     :frame-edited nil
-    :used-frames (vec (repeat 32 nil)) ; for indicating on the right
+    ;; TL new
+    ;; the state handlers (should) set this to true if you make any change
+    ;; the save handler (should) then set this to false on save
+    :track-edited? nil
+    :used-frames (vec (repeat const/frame-count nil)) ; for indicating on the right
     :octave 4
     :bpm 100
     :mode :normal
     :player {:audio-context (create-audio-context)
              :chip nil
              :track-chan nil
-             :note-chip nil  ; for playing single notes when keys are pressed
-             :note-chan (chan 2)  ; sigh ; 18jun18 what the fuck is
+             ;; XXX hax. when a note is entered, its whole slice is pushed to
+             ;; `note-chan` and is immediately consumed/played by `note-chip`
+             :note-chip nil
+             :note-chan (chan 2)
              :scheme [:square :square :triangle :sawtooth]}}))
 
 (defn get-player
@@ -56,11 +85,21 @@
 
 (defn set-frame!
   [frame state]
-  (swap! state assoc :active-frame frame))
+  ;; gonna feel good to delete the active-frame line when we
+  ;; stop tracking active frame separately...
+  (let [active-line (min const/max-line-count (* frame const/frame-length))
+        ;; this is a bug by the way, it should be more like.
+        ;; (round (/ ...)) but I don't care, as long as I can
+        ;; see what im doing >.>
+        ]
+    (swap! state assoc
+           :active-line active-line
+           :active-frame frame)
+    (prn @state)))
 
 (defn set-attr!
-  [[line chan attr] frame value state]
-  (swap! state update-in [:slices frame line chan]
+  [[line chan attr] _frame value state]
+  (swap! state update-in [:slices line chan]
          #(assoc % attr value)))
 
 (defn set-octave! [octave state]
@@ -84,13 +123,15 @@
   [motion state]
   (let [[dline dchan dattr] (const/motions motion)
         [line chan attr] (cursor-position state)
-        next-line (u/bounded-add (dec const/frame-length) line dline)
+        next-line (u/bounded-add const/last-position line dline)
         ;; use this until the composer state representation gets fixed...
         cursor-attr-pos (+ (* const/attr-count chan) attr)
         ;; a plain mod of attr + dattr would cause the cursor to cycle in the first
         ;; and last channel positions, so this is one way to solve that
         next-attr- (u/bounded-add (dec const/total-attr-positions) cursor-attr-pos dattr)
         next-attr (mod next-attr- const/attr-count)
+        ;; re confusion in constants: here it is...
+        ;; fix this
         next-chan (quot next-attr- const/attr-count)]
     (set-cursor-position! [next-line next-chan next-attr] state)))
 
@@ -159,10 +200,9 @@
 (defn serialize-frame [frame]
   (apply str (mapcat serialize-slice frame)))
 
+;; need to write a spec for this at some point
 (defn serialize-frames
   "Format is:
-  version on first line, length 4 (%0.01)
-  For Version 0.01:
   one frame per line
   each slice is a sequence of four notes
   each note is a sequence of 3 characters

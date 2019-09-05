@@ -33,11 +33,11 @@
       (recur (first remaining) (rest remaining))))
   node)
 
+;; I dunno, here's a comment just so you can see what it looks like
 (def available-waves #{:sine :triangle :square :sawtooth})
 
 (defn create-osc
-  "Available types are sine, square, triangle, sawtooth. Prefer passing type as
-  a keyword (e.g. :sine) for style.
+  "Prefer passing type as a keyword (e.g. :sine) for style.
 
   https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode/type"
   [context osc-type-]

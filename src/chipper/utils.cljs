@@ -37,7 +37,7 @@
   ;; arbitrary multiplier because oscillators are loud and this works through
   ;; my headphones
   (* 0.05 (or (get [0 0.11 0.22 0.33 0.44 0.55 0.66 0.77 0.88 1] digit)
-              0.55))) ;; arbitrary
+              0.55))) ; arbitrary multiplier, should go in constants
 
 (defn bounded-range
   "This is a super hack!
@@ -73,5 +73,5 @@
         diff-min (if (> naive-max maximum) (- naive-max maximum) 0)
         bounded-max (min (+ center radius diff-max) maximum)
         bounded-min (max (- center radius diff-min) minimum)]
-    (prn (str "max/min " bounded-min " " bounded-max))
+    ; (prn (str "max/min " bounded-min " " bounded-max))
     [bounded-min bounded-max]))

@@ -83,15 +83,28 @@
              (.join (.split s " ") "0"))))
 
 (defn number->hex [n]
+  ;; dev[[ make this mod 16 instead of "raw" (too many digits); we need to add
+  ;; some sort of indication of which frame you're on as well as frame boundaries ]]dev
   (as-> n s
+    (mod s 32)
     (.toString s 16)
+    ; (.toString s)
     (.toUpperCase s)
     (str (when-not (even? (count s)) "0") s)))
 
-(defn line-hex [hex bright?]
-  [:span [:span
-          {:class (when bright? :bright-text)}
-          (str " " hex " ")] ""])  ; savage
+(defn line-hex [line-number]
+  (let [hex (number->hex line-number)]
+    [:span [:span
+            {:class (when (zero? (mod line-number const/measure-size))
+                      :beat-marker)
+             ; (if (zero? (mod line-number const/marker-distance))
+             ;   ; TODO either do this or actually change the text
+             ;   ; to indicate that it's a new "measure"
+             ;   :measure-marker
+             ;   (when (zero? (mod line-number const/measure-size))
+             ;     :beat-marker))
+             }
+            (str " " hex " ")] ""]))
 
 ;; XXX this needs to 1: be its own column (flex div) on the right instead
 ;; of part of the line; it's slowing redraws way too much
@@ -116,21 +129,19 @@
 (defn line
   "One line consisting of: the line number, the slice, and the high-level view"
   [slice line-id line-number line-active? window-index state]
-  (let [hex (number->hex line-number)
-        bright? (zero? (mod line-number 4))]
-    [:pre.slice {:id line-id}
-     [:span      {:class (when line-active? :active-line)}
-      [line-hex hex bright?]
-      (let [active-chan (if line-active?
-                          (:active-chan @state)
-                          -1)]
-        (for [[attrs chan-number] (map vector slice (range))
-              :let [chan-active? (and line-active?
-                                      (= chan-number active-chan))
-                    chan-id (str line-number "-" chan-number)]]
-          ^{:key chan-id}
-          [channel attrs chan-id chan-active? state]))]
-     (comment [frame-hex line-number window-index state])]))
+  [:pre.slice {:id line-id}
+   [:span      {:class (when line-active? :active-line)}
+    [line-hex line-number]
+    (let [active-chan (if line-active?
+                        (:active-chan @state)
+                        -1)]
+      (for [[attrs chan-number] (map vector slice (range))
+            :let [chan-active? (and line-active?
+                                    (= chan-number active-chan))
+                  chan-id (str line-number "-" chan-number)]]
+        ^{:key chan-id}
+        [channel attrs chan-id chan-active? state]))]
+   (comment [frame-hex line-number window-index state])])
 
 (defn main-ui
   "Main UI. Combines scheme, track, controls, modeline, etc"
@@ -142,14 +153,24 @@
       [scheme-line scheme]
       [:div#slices
        (let [; `view` is the 'visible' portion of the track
-             ; TODO ui should definitely cut slices of the track to display on its
-             ; own ie we shouldn't? explicitly keep frame-start and -end elsewhere?
-             [view-start
-              view-end] (u/bounded-range
-                         (:active-line @state)
-                         (quot const/frame-length 2)
-                         (count (:slices @state))
-                         0)
+             ;; TODO move this to startup portion
+             ;; add a :view-start and :view-end to state
+             ;; make set-cursor-position! set :view-start and :view-end when necessary
+             ;; (still need a way to handle resize)
+             ;; make the cursor movement actions set the next visible section
+             ;; this is the only way to have a sliding viewport as well as a
+             ;; visibility margin... well, you could do something a bit more
+             ;; pubsub to have set cursor + set view limits be different things
+             ;; but set-cursor-position! might as well do it for now :/
+             ; [view-start
+             ;  view-end] (u/bounded-range
+             ;             (:active-line @state)
+             ;             (quot const/frame-length 2)
+             ;             (count (:slices @state))
+             ;             0)
+             ;; XXX temporary? who knows
+             view-start (:view-start @state)
+             view-end (:view-end @state)
              view (subvec (:slices @state) view-start view-end)]
          (for [[slice line-number window-index]
                (map vector view (range view-start view-end) (range))

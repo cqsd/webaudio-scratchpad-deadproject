@@ -1,7 +1,7 @@
 (ns chipper.state
   (:require [clojure.string :refer [split-lines]]
             [chipper.audio :refer [create-audio-context]]
-            [chipper.chips :as c]
+            ; [chipper.chips :as c]
             [chipper.constants :as const]
             [chipper.utils :as u]
             [cljs.core.async :refer [chan]]
@@ -33,12 +33,17 @@
 ;;   represents your composition as a whole
 ;; - player - a map of the audio context, the chip, the core.async channel
 ;;   used to get nonblocking playback, the scheme, and some other hax
+
+;; looks like it's finna be time to break this up soon lol
 (def state
   (r/atom
-   {:slices (empty-frames)
+   {:slices (empty-frames) ;; can we PLEASE rename this to :track
     :active-line 0
     :active-chan 0
     :active-attr 0
+    :view-start 0
+    :view-end   const/view-size
+    :view-size  const/view-size
     ; :active-frame 0
     :frame-edited nil
     ;; TL new
@@ -77,15 +82,67 @@
   [mode state]
   (swap! state assoc :mode mode))
 
+(defn bound-checked-line-number
+  "Return a line number that's within the bounds of the track"
+  [line state]
+  (let [last-position-in-track (dec (count (:slices @state)))]
+    (max (min line last-position-in-track) 0)))
+
+(defn next-view-boundaries
+  "Return new view boundaries in the form [view-start view-end], taking
+  into account the scrolloff setting and the current viewport size"
+  [next-line state]
+  ;; note that we have to take the direction of travel of the cursor into account
+  ;; when computing view-size, but we set the absolute position in this function
+  ;; (ie, we don't have a sign to rely on to determine direction of travel)
+  ;;
+  ;; thus the logic is
+  ;;  - get the current boundaries
+  ;;  - if next position > (view-end - scrolloff),
+  ;;      adjust view-end to be position + 2 (bound-checked)
+  ;;      adjust view-start to be view-end - view-size
+  ;;  - if next position < (view-start + scrolloff),
+  ;;      adjust view-start to be position - 2 (bound-checked)
+  ;;      adjust view-start to be view-end + view-size
+  ;;  - otherwise we're somewhere in the middle, so just return the existing ones
+  ;; we could write this in a more clever way but this is clearest
+  ;; note that this is probably gonna slow rendering the fuck down lmfao
+  (let [start (:view-start @state)
+        end   (:view-end @state)
+        size  (:view-size @state)]
+    (prn next-line)
+    (prn [start end])
+    (cond
+      ;; scrolling down beyond the margin
+      (>= next-line (- end const/scrolloff))
+      ;; note this inc: it's because bound-checked.. is really for ensuring that
+      ;; the next _cursor position_ is on the track, ie, it's one less than the
+      ;; "logical line number" (ie, it's an index to the track).
+      ;; view-end is used to take a slice of the track using subvec, so it has to
+      ;; be one greater than the last index we want, ie, we have to inc the result
+      ;; from bound-checked-linue-number (yes, it's a hack)
+      (let [next-end (inc (bound-checked-line-number (+ const/scrolloff next-line) state))
+            next-start (- next-end const/view-size)]
+        [next-start next-end])
+      ;; scrolling up
+      (< next-line (+ start const/scrolloff))
+      (let [next-start (bound-checked-line-number (- next-line const/scrolloff) state)
+            next-end (+ next-start const/view-size)]
+        [next-start next-end])
+      :else [start end])))
+
 (defn set-cursor-position!
   [[line chan attr] state]
-  ;; XXX hax
-  (let [m (dec (count (:slices @state)))
-        l (max (min line m) 0)]
+  ;; ensure that we can't set the cursor position beyond the bounds of
+  ;; the track (notice the position in the line is missing a check..)
+  (let [bound-checked-line (bound-checked-line-number line state)
+        [view-start view-end] (next-view-boundaries bound-checked-line state)]
     (swap! state assoc
-           :active-line l
+           :active-line bound-checked-line
            :active-chan chan
-           :active-attr attr)))
+           :active-attr attr
+           :view-start  view-start
+           :view-end    view-end)))
 
 (comment (defn set-frame!
            [frame state]
@@ -148,12 +205,12 @@
                          ((:slices @state) frame)))))
 
 ;; TODO set the frame-edited flag in state
-(comment (defn set-relative-frame!
-           [dframe state]
-           (let [frame (:active-frame @state)]
-             (set-frame!
-               (u/bounded-add (dec const/frame-count) frame dframe)
-               state))))
+; (defn set-relative-frame!
+;   [dframe state]
+;   (let [frame (:active-frame @state)]
+;     (set-frame!
+;       (u/bounded-add (dec const/frame-count) frame dframe)
+;       state)))
 
 (defn set-attr-at-cursor!
   ;; so value-'ll get renamed next patch to actually be meaninful, re set-attr!
@@ -169,7 +226,11 @@
                   [value- nil nil])
                 value-)]
     (set-attr! position value state)
-    (when playable (c/play-slice! state (:player @state) position))))
+    (when playable
+      ; TODO push onto the play queue instead and just disable note inputs when
+      ; in the playing state, I guess
+      ; (comment (c/play-slice! state (:player @state) position))
+      )))
 
 (defn set-relative-octave!
   [direction state]
@@ -215,17 +276,17 @@
 (defn deserialize-slice [serialized-slice]
   (vec
    (for [[note- octave- gain-] (partition 3 serialized-slice)]
-     (let [note    (cond
-                     (= "-" note-) nil
-                     (= "o" note-) :off
-                     (= "s" note-) :stop
-                     :else (js/parseInt note- 16))
-           octave  (cond
-                     (= "-" octave-) nil
-                     :else (js/parseInt octave-))
-           gain    (cond
-                     (= "-" gain-) nil
-                     :else (js/parseInt gain-))]
+     (let [note   (cond
+                    (= "-" note-) nil
+                    (= "o" note-) :off
+                    (= "s" note-) :stop
+                    :else (js/parseInt note- 16))
+           octave (cond
+                    (= "-" octave-) nil
+                    :else (js/parseInt octave-))
+           gain   (cond
+                    (= "-" gain-) nil
+                    :else (js/parseInt gain-))]
         ; if both nil, just give nil insead of [nil nil] for note
        [(when-not (nil? (or note octave)) [note octave]) gain nil]))))
 

@@ -60,13 +60,20 @@
   [state chip track]
   (go-loop []
     (when-let [[slice active-line] (<! track)]  ; <! is nil on closed chan
-      (prn (str "slice id " active-line))
+      ;; (prn (str "slice id " active-line))
       ; XXX this swap is the only reason to pass state in here;
-      ; find a way to remove it (e.g. by using core async the *intended*
-      ; way
+      ; find a way to remove it (e.g. by using core async the intended way)
+      ;; also, use a set-cursor-position! here instead of bare swap!
       (swap! state assoc
              ; :active-frame (quot active-line const/frame-length)
              :active-line active-line)
+      ;; a line looks like this
+      ;; [[:A 1 1] [:C ...] nil ...]
+      ;; each note looks like this [:note-name dynamic unused]
+      ;; map gets out the note name
+      ;; now understand that some notes ([:A 1 nil]) can just be nil
+      ;; filter identity just gets rid of the nils
+      ;; you're left with a sequence of :A :C ...
       (let [notes (filter identity (map (comp first first) slice))]
         (if (some (partial = :stop) notes)
           (stop-track! state chip)
@@ -131,6 +138,7 @@
         (close! ch))
     (go-loop []
       (when-let [slice (<! ch)]
+        ;; XXX what in the fuck
         (let [notes (filter identity (map (comp first first) slice))]
           (do (set-chip-attrs! chip slice)
               (recur))))

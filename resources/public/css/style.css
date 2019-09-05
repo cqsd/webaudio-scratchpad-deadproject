@@ -1,6 +1,6 @@
 /* TODO scheme and button should have same height */
 html, body {
-    background: #4f688e;
+    background: #435e5f;
     color: #e0ecff;
     font-size: 11pt;
     font-family: 'Inconsolata', monospace;
@@ -124,7 +124,12 @@ pre {
 .stopline {
     background: #1f283e;
 }
-.bright-text { color: #f4bf42; }
+.bright-text,
+.beat-marker,
+.measure-marker {
+  color: #f4bf42;
+}
+.measure-marker { background: #ffffff; }
 .active-attr { background: #f4bf42; }
 .af { color: black; }
 .edit { background: pink; }
@@ -180,12 +185,12 @@ span.ps:last-child:after { content: ""; }
 }
 
 .file {
-	width: 0.1px;
-	height: 0.1px;
-	opacity: 0;
-	overflow: hidden;
-	position: absolute;
-	z-index: -1;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  z-index: -1;
 }
 
 /* ---------- MISCELLANEOUS ---------- */

@@ -15,10 +15,10 @@
    "keydown"
    #(a/handle-keypress! % state))
 
-  (.addEventListener
-   js/window
-   "keydown"
-   #(prn (.-code %)))
+  ; (.addEventListener
+  ;  js/window
+  ;  "keydown"
+  ;  #(prn (.-code %)))
 
   (.addEventListener
    (js/document.getElementById "file")
@@ -52,4 +52,5 @@
       load-state
       render-app))
 
+;; TODO something in this file sort of broke reloads lol @neilvyas
 (init-app s/state)

@@ -3,7 +3,7 @@
   (:require [chipper.audio :as a]
             [chipper.constants :as const]
             [chipper.utils :as u]
-            [chipper.state :refer [get-player update-player]]
+            [chipper.state :refer [get-player update-player set-cursor-line!]]
             [cljs.core.async :refer [<! >! close! timeout] :as async])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
@@ -60,13 +60,7 @@
   [state chip track]
   (go-loop []
     (when-let [[slice active-line] (<! track)]  ; <! is nil on closed chan
-      ;; (prn (str "slice id " active-line))
-      ; XXX this swap is the only reason to pass state in here;
-      ; find a way to remove it (e.g. by using core async the intended way)
-      ;; also, use a set-cursor-position! here instead of bare swap!
-      (swap! state assoc
-             ; :active-frame (quot active-line const/frame-length)
-             :active-line active-line)
+      (set-cursor-line! active-line state)
       ;; a line looks like this
       ;; [[:A 1 1] [:C ...] nil ...]
       ;; each note looks like this [:note-name dynamic unused]

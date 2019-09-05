@@ -131,6 +131,19 @@
         [next-start next-end])
       :else [start end])))
 
+;; XXX this is a hack imo
+(defn set-cursor-line!
+  "used by the player to advance the cursor to follow along with playback"
+  [line state]
+  ;; ensure that we can't set the cursor position beyond the bounds of
+  ;; the track (notice the position in the line is missing a check..)
+  (let [bound-checked-line (bound-checked-line-number line state)
+        [view-start view-end] (next-view-boundaries bound-checked-line state)]
+    (swap! state assoc
+           :active-line bound-checked-line
+           :view-start  view-start
+           :view-end    view-end)))
+
 (defn set-cursor-position!
   [[line chan attr] state]
   ;; ensure that we can't set the cursor position beyond the bounds of

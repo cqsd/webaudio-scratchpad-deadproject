@@ -1,12 +1,12 @@
 ;; TODO it would feel more natural to pass state as the first argument to each
 ;; of these fns rather than the last
-(ns chipper.actions
+(ns chipper.state.actions
   (:require [chipper.keyboard :as k]
-            [chipper.chips :as c]
-            [chipper.state :as s]))
+            [chipper.state.player :as player]
+            [chipper.state.primitives :as s]))
 
 (defn play-pause! [_ state] ; uh oh
-  (c/play-track state))
+  (player/play-track state))
 
 ;; you've never seen ugly code before
 (declare handle-property!)
@@ -22,7 +22,7 @@
 (def property-handlers
   {:mode s/set-mode!
    :motion s/set-relative-position!  ;; FIXME naming
-   :absolute-position s/set-absolute-position!
+   ; :absolute-position s/set-absolute-position! ;; apparently unused
    ; :frame s/set-relative-frame!
    :attr s/set-attr-at-cursor!
    :octave s/set-relative-octave!

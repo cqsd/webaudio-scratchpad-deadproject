@@ -1,5 +1,5 @@
 (defproject chipper "0.1.1"
-  :description "In-browser chiptune tracker."
+  :description "In-browser chiptune-ish tracker."
   :url "http://github.com/cqsd/chipper"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -19,7 +19,7 @@
               [{:id "dev"
                 :source-paths ["src"]
                 ;; inject figwheel into cljs build
-                :figwheel true ; TODO we gotta fix this
+                :figwheel true
                 :compiler {:main chipper.core
                            :asset-path "js/compiled/out"
                            :output-to "resources/public/js/chipper.js"
@@ -32,22 +32,19 @@
                 :source-paths ["src"]
                 :compiler {:output-to "resources/public/js/chipper.js"
                            :main chipper.core
-                           ;http://blog.alex-turok.com/2016/05/using-external-javascript-library-in.html
+                           ;; http://blog.alex-turok.com/2016/05/using-external-javascript-library-in.html
                            :externs ["resources/public/js/externs.js"]
                            :optimizations :advanced
                            :pretty-print false}}]}
   :figwheel {:css-dirs ["resources/public/css"] ;; watch and update CSS
-             :nrepl-port 7888
-             ;; :ring-handler hello_world.server/handler
-             }
- 
+             :nrepl-port 7888}
+
   :profiles {:dev {:dependencies [;[org.clojure/tools.nrepl "0.2.13"]
                                   [nrepl "0.6.0"]
                                   [binaryage/devtools "0.9.10"]
                                   [figwheel-sidecar "0.5.4-6"]
                                   [cider/piggieback "0.4.1"]]
-                   ;; need to add dev source path here to get user.clj loaded
-                   :source-paths ["src" "dev"]
+                   :source-paths ["src"]
                    ;; for CIDER
                    :plugins [[cider/cider-nrepl "0.22.1"]]
                    :repl-options {; for nREPL dev you really need to limit output

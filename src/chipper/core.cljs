@@ -1,8 +1,10 @@
 (ns chipper.core
-  (:require [chipper.audio :refer [create-audio-context]]
-            [chipper.ui :as ui]
-            [chipper.state :as s]
-            [chipper.actions :as a]
+  (:require [chipper.ui :as ui]
+            [chipper.state.audio :refer [create-audio-context]]
+            [chipper.state.actions :as actions]
+            [chipper.state.primitives :as primitives]
+            [chipper.state.player :as player]
+            [chipper.state.save-load :as save-load]
             [reagent.core :as r]))
 
 (enable-console-print!)
@@ -13,7 +15,7 @@
   (.addEventListener
    js/window
    "keydown"
-   #(a/handle-keypress! % state))
+   #(actions/handle-keypress! % state))
 
   ; (.addEventListener
   ;  js/window
@@ -23,25 +25,31 @@
   (.addEventListener
    (js/document.getElementById "file")
    "change"
-   #(s/load-save-file! state %))
+   #(save-load/load-save-file! state %))
 
   (.addEventListener
    js/window
    "mousedown"
-   #(a/handle-mousedown! % state))
+   #(actions/handle-mousedown! % state))
+  state)
+
+(defn start-preview-chip-loop
+  "start choochin on the note preview chan"
+  [state]
+  (player/initialize-preview-chip state)
   state)
 
 (defn render-app [state]
   (r/render-component
-   [ui/main-ui (s/get-player state :scheme) (:slices @state) state]
+   [ui/main-ui (primitives/get-player state :scheme) (:slices @state) state]
    (.getElementById js/document "app"))
   state)
 
 (defn load-state [state]
   "Discover and load any saved state."
-  (let [found-frames (s/recover-frames-or-make-new!)]
-    (s/set-frames! found-frames state)
-    (s/set-used-frames! found-frames state))
+  (let [found-frames (save-load/recover-frames-or-make-new!)]
+    (save-load/set-frames! found-frames state)
+    (save-load/set-used-frames! found-frames state))
   (prn (str "there are " (str (count (:slices @state))) " slices"))
   state)
 
@@ -49,8 +57,9 @@
   "Set the initial conditions and start the app."
   (-> state
       register-listeners
+      start-preview-chip-loop
       load-state
       render-app))
 
-;; TODO something in this file sort of broke reloads lol @neilvyas
-(init-app s/state)
+;; TODO this broke fighwheel reloads lol @neilvyas
+(init-app primitives/state)

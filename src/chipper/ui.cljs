@@ -1,7 +1,7 @@
 (ns chipper.ui
-  (:require [chipper.chips :as c]
-            [chipper.constants :as const]
-            [chipper.state :as s]
+  (:require [chipper.constants :as const]
+            [chipper.state.player :as player]
+            [chipper.state.save-load :as save-load]
             [chipper.notes :as n]
             [chipper.utils :as u]
             [goog.string :as gs]
@@ -32,15 +32,15 @@
     [:span {:id :save
             :class (str "button"
                         (when (:frame-edited @state) " bright-text"))
-            ;; TODO FIXME don't call save-state directly, make it an action.
-            :on-click #(s/save! state)}
+            ;; TODO FIXME don't call save directly, make an action for it
+            :on-click #(save-load/save! state)}
      "save"]
     " "
     [:span {:id :play
             :class (str "button"
                         (when (:track-chan (:player @state))
                           " bright-text"))
-            :on-click #(c/play-track state)}
+            :on-click #(player/play-track state)}
      (if (:track-chan (:player @state)) "pause" "play")] " "]])
 
 (defn channel

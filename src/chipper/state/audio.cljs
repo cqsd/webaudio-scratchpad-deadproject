@@ -4,7 +4,7 @@
 ;; - source - a node
 ;; - output - a destination
 ;; - channel - a plain js object: {source: source, output: output}
-(ns chipper.audio
+(ns chipper.state.audio
   (:require [chipper.notes :as n]
             [chipper.utils :as u]))
 

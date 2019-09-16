@@ -1,14 +1,17 @@
-(ns chipper.state
+;; TODO this might actually merit another subdirectory, because the audio.cljs
+;; file is all "primitives" too. Or maybe we should refine what primitive means
+;; I don't like that primitives is importing from state lmfao but this is a pretty
+;; haphazard intermediate step...
+(ns chipper.state.primitives
   (:require [clojure.string :refer [split-lines]]
-            [chipper.audio :refer [create-audio-context]]
-            ; [chipper.chips :as c]
+            [chipper.state.audio :refer [create-audio-context]]
+            ;; [chipper.state.player :as c]
             [chipper.constants :as const]
             [chipper.utils :as u]
             [cljs.core.async :refer [chan]]
-            [reagent.core :as r]))
-
-(defn empty-frames []
-  (vec (repeat const/max-line-count (vec (repeat 4 [nil nil nil])))))
+            [reagent.core :as r]
+            [cljs.core.async :refer [<! >! close! timeout] :as async])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 ;; some explanation is due
 ;; this documentation is written is very after-the-fact, so no types because i
@@ -37,7 +40,7 @@
 ;; looks like it's finna be time to break this up soon lol
 (def state
   (r/atom
-   {:slices (empty-frames) ;; can we PLEASE rename this to :track
+   {:slices nil
     :active-line 0
     :active-chan 0
     :active-attr 0
@@ -58,9 +61,11 @@
              :chip nil
              :track-chan nil
              ;; XXX hax. when a note is entered, its whole slice is pushed to
-             ;; `note-chan` and is immediately consumed/played by `note-chip`
-             :note-chip nil
-             :note-chan (chan 2)
+             ;; `preview-chan` and is immediately consumed/played by `preview-chip`
+             ;; i guess we'll fix this when we rip it into a state machine, ...
+             ;; pls gib nrg to actually make these changes
+             :preview-chip nil
+             :preview-chan (async/chan 2)
              :scheme [:square :square :triangle :sawtooth]}}))
 
 (defn get-player
@@ -70,6 +75,23 @@
 (defn update-player
   [state attr value]
   (swap! state update-in [:player attr] (constantly value)))
+
+;; rename to like, play-at-position (and idfk how the hell the refactor will work)
+(defn push-slice-at-position
+  [state player [line _ _]]
+  (let [ch            (:preview-chan (:player @state))
+        chip          (get-player state :preview-chip)
+        slice         (get-in @state [:slices line])
+        scheme-length (count (get-player state :scheme))]
+    ;; put the slice on the channel, put a delay spacer to let the note play,
+    ;; put an :off directive to shut off playback. effect is we'll just play
+    ;; one slice
+    ;; (prn (str "pushing " slice " at " line " onto preview channel"))
+    ;; (prn (str "scheme length " scheme-length))
+    (go (>! ch slice)
+        (<! (timeout 100)) ; hack! you'll have to use the app to see what's wrong, it's too much to explain
+        ;; put enough :off directives to turn off all notes (hacky!)
+        (>! ch (vec (repeat scheme-length [[:off nil] nil nil]))))))
 
 (defn cursor-position [state]
   [(:active-line @state)
@@ -157,20 +179,6 @@
            :view-start  view-start
            :view-end    view-end)))
 
-(comment (defn set-frame!
-           [frame state]
-           ;; gonna feel good to delete the active-frame line when we
-           ;; stop tracking active frame separately...
-           (let [active-line (min (count (:slices @state)) (* frame const/frame-length))
-                 ;; this is a bug by the way, it should be more like.
-                 ;; (round (/ ...)) but I don't care, as long as I can
-                 ;; see what im doing >.>
-                 ]
-             (swap! state assoc
-                    :active-line active-line
-                    :active-frame frame)
-             (prn @state))))
-
 (defn set-attr!
   [[line chan attr] value state]
   (swap! state update-in [:slices line chan]
@@ -186,11 +194,6 @@
 (defn reset-cursor! [state]
   "Set the cursor position to top left."
   (set-cursor-position! [0 0 0] state))
-
-(defn set-absolute-position!
-  "Potentially confusing naming, given the existence of set-cursor-position!"
-  [params state]
-  (js/alert "not implemented!"))
 
 (defn set-relative-position!
   "This is still a mess."
@@ -209,26 +212,14 @@
         next-chan (quot next-attr- const/attr-count)]
     (set-cursor-position! [next-line next-chan next-attr] state)))
 
-(defn set-frame-used?! [frame state]
-  "If :frame is used, mark it as such in :state."
-  (swap! state assoc-in
-         [:used-frames frame]
-         (some identity
-               (sequence (comp cat cat)
-                         ((:slices @state) frame)))))
-
-;; TODO set the frame-edited flag in state
-; (defn set-relative-frame!
-;   [dframe state]
-;   (let [frame (:active-frame @state)]
-;     (set-frame!
-;       (u/bounded-add (dec const/frame-count) frame dframe)
-;       state)))
-
 (defn set-attr-at-cursor!
   ;; so value-'ll get renamed next patch to actually be meaninful, re set-attr!
+  ;; explanation for now: each note is a vec like [[:A 4] 1 1]; each of those vector
+  ;; positions is an "attr", meaning attr may refer to [note octave], the dynamic,
+  ;; or the effect (unimplemented) respectively. we'll have to change this when
+  ;; we switch this over to being a .MOD player/tracker...
   [value- state]
-  (let [;; mhm, mhm, yeah, this is a thing that will change next patch
+  (let [;; mhm, mhm, yeah, this must change soon TODO
         [_ _ attr :as position] (cursor-position state)
         ;; so for now, if the cursor's on the note, we insert [notename octave]
         ;; otherwise we insert NOTHING
@@ -240,10 +231,7 @@
                 value-)]
     (set-attr! position value state)
     (when playable
-      ; TODO push onto the play queue instead and just disable note inputs when
-      ; in the playing state, I guess
-      ; (comment (c/play-slice! state (:player @state) position))
-      )))
+      (push-slice-at-position state (:player @state) position))))
 
 (defn set-relative-octave!
   [direction state]
@@ -262,127 +250,9 @@
    (fn [i v] (when v (get-in @state [:slices i])))
    (:used-frames @state)))
 
-(defn serialize-slice [slice]
-  (apply str
-         (for [[[note octave] gain _] slice]
-           (let [notestr   (cond
-                             (nil? note) "-"
-                             (= :off note) "o"
-                             (= :stop note) "s"
-                             :else (.toString note 16))
-                 octavestr (or octave "-")
-                 gainstr   (or gain "-")]
-             (str notestr octavestr gainstr)))))
-
-;; need to write a spec for this at some point
-(defn serialize-frames
-  "Format is:
-  one frame per line
-  each slice is a sequence of four notes
-  each note is a sequence of 3 characters
-   - note is 0-11 inclusive; o for :off, s for :stop
-   - octave is 0-9 inclusiv
-   - gain is 0-9 inclusive"
-  [slices]
-  (apply str (interpose "\n" (map serialize-slice slices))))
-
-(defn deserialize-slice [serialized-slice]
-  (vec
-   (for [[note- octave- gain-] (partition 3 serialized-slice)]
-     (let [note   (cond
-                    (= "-" note-) nil
-                    (= "o" note-) :off
-                    (= "s" note-) :stop
-                    :else (js/parseInt note- 16))
-           octave (cond
-                    (= "-" octave-) nil
-                    :else (js/parseInt octave-))
-           gain   (cond
-                    (= "-" gain-) nil
-                    :else (js/parseInt gain-))]
-        ; if both nil, just give nil insead of [nil nil] for note
-       [(when-not (nil? (or note octave)) [note octave]) gain nil]))))
-
-(defn deserialize-frames [serialized-slices]
-  (into [] (map deserialize-slice (split-lines serialized-slices))))
-
-(defn serialize-compressed [frames]
-  (js/LZString.compressToBase64 (serialize-frames frames)))
-
-;; need these paginated ones for now just so we can convert old saves over
-;; not sure what that means
-(defn deserialize-frame [serialized-frame]
-  (vec (map deserialize-slice (partition (* 4 3) serialized-frame))))
-
-(comment (defn deserialize-frames-old [serialized-frames]
-           (let [s (into [] (mapcat identity (into [] (map deserialize-frame (split-lines serialized-frames)))))]
-             (prn s)
-             (prn (count s))
-             s)))
-
-(defn deserialize-compressed [compressed]
-  (deserialize-frames (js/LZString.decompressFromBase64 compressed)))
-
-(defn save-local! [state]
-  (try
-    (do (.setItem js/localStorage
-                  "state"
-                  (serialize-compressed (:slices @state)))
-        (swap! state assoc :frame-edited nil))
-    (catch js/Error e
-      (prn "Couldn't save to local storage."))))
-
-(defn saved-frame-state [] (.getItem js/localStorage "state"))
-
-(defn recover-frames-or-make-new! []
-  (try
-    (if-let [saved (saved-frame-state)]
-      (let [found (deserialize-compressed (saved-frame-state))]
-        (if (= (count (:slices @state)) (count found))
-          found
-          (throw (js/Error. "Bad save"))))
-      (empty-frames))
-    (catch js/Error e
-      (do (js/alert "Error recovering from local storage. Try loading a savefile.")
-          (prn e)
-          (empty-frames)))))
-
-(defn set-frames! [frames state]
-  (swap! state assoc :slices frames))
-
-(defn set-used-frames! [frames state]
-  (doseq [x (range (count (:used-frames @state)))]
-    (set-frame-used?! x state)))
-
-(defn save! [state]
-  (let [compressed (serialize-compressed  (:slices @state))
-        data-url   (str "data:application/octet-stream," compressed)]
-    (save-local! state)
-    (try
-      (do (prn data-url)
-          (js/window.open data-url "save")
-          (swap! state assoc :frame-edited nil))
-      (catch js/Error e
-        (js/alert "Error saving. Tough luck.")))))
-
-; TODO XXX ERROR HANDLING
-(defn set-frame-state-from-b64 [state s]
-  (swap! state assoc :slices (deserialize-compressed s))
-  (doseq [x (range (count (:used-frames @state)))]
-    (set-frame-used?! x state)))
-
-(defn load-save-file! [state evt]
-  (try
-    (let [file   (aget (.-files (.-target evt)) 0)
-          reader (js/FileReader.)]
-      (set! (.-onload reader) #(set-frame-state-from-b64 state (.-result reader)))
-      (.readAsText reader file))
-    (catch js/Error e
-      (js/alert "Unable to load from file. Tragic :/"))))
-
-(defn check-set-frame-use [state]
-  ; (prn (str "frame edited" (:frame-edited @state)))
-  (when (:frame-edited @state)
-    (set-frame-used?! (:active-frame @state) state)
-    (swap! state assoc
-           :frame-edited nil)))
+; (defn check-set-frame-use [state]
+;   ; (prn (str "frame edited" (:frame-edited @state)))
+;   (when (:frame-edited @state)
+;     (set-frame-used?! (:active-frame @state) state)
+;     (swap! state assoc
+;            :frame-edited nil)))

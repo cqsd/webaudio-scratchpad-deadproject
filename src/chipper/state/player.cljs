@@ -1,60 +1,23 @@
 ;; this needs a HUGE refactor
-(ns chipper.chips
-  (:require [chipper.audio :as a]
+(ns chipper.state.player
+  (:require [chipper.state.audio :as a]
+            [chipper.state.chips :as chips]
+            [chipper.state.primitives :refer [get-player update-player set-cursor-line!]]
             [chipper.constants :as const]
             [chipper.utils :as u]
-            [chipper.state :refer [get-player update-player set-cursor-line!]]
             [cljs.core.async :refer [<! >! close! timeout] :as async])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
-
-(defn create-chip!
-  "Just returns a vector of output-connected sources for now."
-  ([scheme] (create-chip! scheme (a/create-audio-context)))
-  ([scheme audio-context]
-   {:scheme scheme
-    :channels (a/create-osc-channels! audio-context scheme)}))
-
-(defn chip-for-state [state]
-  (create-chip! (get-player state :scheme) (get-player state :audio-context)))
-
-(defn chip-off! [chip]
-  (doseq [channel (:channels chip)]
-    (a/chan-off! channel))
-  chip)
-
-(defn set-channel-attrs!
-  "Expects attrs to be a vec of [note, gain, effect]. :off turns the channel
-  off, ignoring the rest of the attrs. Any nils are ignored."
-  [channel attrs]
-  (prn (str "attrs " attrs))
-  (let [[[note octave] gain _] attrs]
-    (when gain
-      (a/set-gain! channel gain))
-    (when note
-      (if (= :off note)
-        (a/chan-off! channel)
-        (-> channel
-            a/chan-on!
-            (a/set-frequency! note octave))))))
-
-(defn set-chip-attrs!
-  "Set the attributes for all channels on the chip by consuming a directive,
-  i.e., a vector of channel attrs.
-
-  Directives are a sequence of [note, gain, effect], one element per channel."
-  [chip slice]
-  (doall (map set-channel-attrs!
-              (:channels chip)
-              slice)))
 
 (defn stop-track!
   "Close the track channel and disconnect the chip."
   [state chip]
   (do (when-let [track (get-player state :track-chan)]
         (close! track))
-      (chip-off! chip)
+      (chips/chip-off! chip)
       (update-player state :track-chan nil)))
 
+;; TODO so the plan of attack is...
+;; FUCK that's gotta come later I can't focus on this shit right now
 (defn play-track!-
   "oh my god"
   [state chip track]
@@ -71,7 +34,7 @@
       (let [notes (filter identity (map (comp first first) slice))]
         (if (some (partial = :stop) notes)
           (stop-track! state chip)
-          (do (set-chip-attrs! chip slice)
+          (do (chips/set-chip-attrs! chip slice)
               (recur)))))
     (stop-track! state chip)))
 
@@ -99,8 +62,8 @@
    (if-not (get-player state :track-chan)
      (let [chip (if-let [chip- (get-player state :chip)]
                   chip-
-                  (chip-for-state state))]
-       (chip-off! chip)  ; XXX don't remember why this is necessary, if at all
+                  (chips/chip-for-state state))]
+       (chips/chip-off! chip)  ; XXX don't remember why this is necessary, if at all
        (update-player state :chip chip)
        (update-player state :track-chan track)
        (play-track!- state chip track))
@@ -116,15 +79,15 @@
 (defn play-slice!
   "hax to play note when you press a key"
   [state player [line _ _]]
-  (when-not (get-player state :note-chip)
-    (update-player state :note-chip (chip-for-state state)))
-  (let [old-ch (:note-chan (:player @state))
+  (when-not (get-player state :preview-chip)
+    (update-player state :preview-chip (chips/chip-for-state state)))
+  (let [old-ch (:preview-chan (:player @state))
         ch     (do
-                 (update-player state :note-chan (async/chan))
-                 (:note-chan (:player @state)))
-        chip   (get-player state :note-chip)
+                 (update-player state :preview-chan (async/chan))
+                 (:preview-chan (:player @state)))
+        chip   (get-player state :preview-chip)
         slice  (get-in @state [:slices line])]
-    (chip-off! chip)
+    (chips/chip-off! chip)
     (close! old-ch)
     (go (>! ch slice)
         (<! (timeout 280))  ; in ms
@@ -134,6 +97,20 @@
       (when-let [slice (<! ch)]
         ;; XXX what in the fuck
         (let [notes (filter identity (map (comp first first) slice))]
-          (do (set-chip-attrs! chip slice)
+          (do (chips/set-chip-attrs! chip slice)
               (recur))))
-      (chip-off! chip))))
+      (chips/chip-off! chip))))
+
+;; dev[[
+(defn initialize-preview-chip
+  [state]
+  (let [ch   (:preview-chan (:player @state))
+        chip (if-let [chip- (get-player state :preview-chip)]
+               chip-
+               (chips/chip-for-state state))]
+    (go-loop []
+      (when-let [slice (<! ch)]
+        ; (prn (str "got notes " slice " on preview chan"))
+        (do (chips/set-chip-attrs! chip slice)
+            (recur))))))
+;; ]]dev

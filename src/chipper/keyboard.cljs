@@ -1,7 +1,5 @@
 (ns chipper.keyboard)
 
-;; TODO namespace the keywords to constants
-
 (def normal-keymap
   {:KeyJ              [:motion :down-line]
    :KeyK              [:motion :up-line]
@@ -57,6 +55,13 @@
    :KeyY       [:macro [[:attr  9] [:motion :down-line]]]
    :KeyH       [:macro [[:attr 10] [:motion :down-line]]]
    :KeyU       [:macro [[:attr 11] [:motion :down-line]]]
+   ;; there's no clean way to make the attr handler do its own mod math, but
+   ;; we'd still like to give a full octave's span without having to press
+   ;; the octave key
+   :KeyJ       [:macro [[:octave :up-one]
+                        [:attr 0]
+                        [:motion :down-line]
+                        [:octave :down-one]]]
 
    :Digit0     [:macro [[:attr  0] [:motion :down-line]]]
    :Digit1     [:macro [[:attr  1] [:motion :down-line]]]
@@ -77,7 +82,7 @@
    :KeyX       [:macro [[:attr :off]  [:motion :down-line]]]
    :ShiftKeyX  [:macro [[:attr :stop] [:motion :down-line]]]
 
-   :Backspace  [:macro [[:attr nil] [:motion :up-line]]]
+   :Backspace  [:macro [[:motion :up-line] [:attr nil]]]
    :Space      [:motion :down-line]
 
    :Minus      [:octave :down-one]

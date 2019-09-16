@@ -31,7 +31,7 @@
   "Expects attrs to be a vec of [note, gain, effect]. :off turns the channel
   off, ignoring the rest of the attrs. Any nils are ignored."
   [channel attrs]
-  (prn (str "attrs " attrs))
+  ; (prn (str "attrs " attrs))
   (let [[[note octave] gain _] attrs]
     (when gain
       (a/set-gain! channel gain))

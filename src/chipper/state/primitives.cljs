@@ -132,8 +132,8 @@
   (let [start (:view-start @state)
         end   (:view-end @state)
         size  (:view-size @state)]
-    (prn next-line)
-    (prn [start end])
+    ; (prn next-line)
+    ; (prn [start end])
     (cond
       ;; scrolling down beyond the margin
       (>= next-line (- end const/scrolloff))

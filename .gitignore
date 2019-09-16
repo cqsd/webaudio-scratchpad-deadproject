@@ -11,5 +11,9 @@ pom.xml
 .lein-plugins/
 .repl
 .nrepl-port
+compiled
+nashorn_*
+.cljs_*
+unused/
 
 chipper.js

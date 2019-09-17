@@ -21,6 +21,7 @@
 
 (def property-handlers
   {:mode s/set-mode!
+   ; TODO how to automatically append lines?
    :motion s/set-relative-position!  ;; FIXME naming
    ; :absolute-position s/set-absolute-position! ;; apparently unused
    ; :frame s/set-relative-frame!

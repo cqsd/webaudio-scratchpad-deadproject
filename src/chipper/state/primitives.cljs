@@ -66,7 +66,7 @@
              ;; pls gib nrg to actually make these changes
              :preview-chip nil
              :preview-chan (async/chan 2)
-             :scheme [:square :square :triangle :sawtooth]}}))
+             :scheme [:square :square :sawtooth :sawtooth]}}))
 
 (defn get-player
   [state attr]

@@ -47,10 +47,13 @@
 
 (defn load-state [state]
   "Discover and load any saved state."
+  ;; TODO XXX FIXME reloading from localStorage broke for :advanced builds idfk why
+  ;; errors in console look like "Uncaught Error: 6 is not ISeqable" (the try-catch
+  ;; in recover-...new! seems wrong?)
   (let [found-frames (save-load/recover-frames-or-make-new!)]
     (save-load/set-frames! found-frames state)
     (save-load/set-used-frames! found-frames state))
-  (prn (str "there are " (str (count (:slices @state))) " slices"))
+  ; (prn (str "there are " (str (count (:slices @state))) " slices"))
   state)
 
 (defn init-app [state]
@@ -61,5 +64,5 @@
       load-state
       render-app))
 
-;; TODO this broke fighwheel reloads lol @neilvyas
+;; FIXME this broke fighwheel reloads lol @neilvyas
 (init-app primitives/state)

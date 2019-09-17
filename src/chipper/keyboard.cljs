@@ -29,6 +29,8 @@
    :Digit0            [:motion :line-beginning]
 
    :KeyI              [:mode :edit]
+   :KeyO              [:macro [[:mode :edit] [:motion :down-line]]]
+   :ShiftKeyO         [:macro [[:mode :edit] [:motion :up-line]]]
    :KeyV              [:mode :visual]
 
    :KeyX              [:macro [[:attr nil] [:motion :down-line]]]

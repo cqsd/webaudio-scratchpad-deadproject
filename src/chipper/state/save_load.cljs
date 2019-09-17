@@ -90,7 +90,8 @@
 (defn recover-frames-or-make-new! []
   (try
     (if-let [saved (saved-frame-state)]
-      (deserialize-compressed (saved-frame-state))
+      ; (deserialize-compressed (saved-frame-state))
+      (empty-frames) ; local restore is broken lol
       (empty-frames))
     (catch js/Error e
       (do (js/alert "Error recovering from local storage. Try loading a savefile.")

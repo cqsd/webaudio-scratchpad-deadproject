@@ -129,10 +129,14 @@ pre {
 .measure-marker {
   color: #f4bf42;
 }
+/* .empty { color: #dadbdc; } */
 .measure-marker { background: #ffffff; }
-.active-attr { background: #f4bf42; }
+.active-attr {
+  background: #f4bf42;
+  color: black;
+}
 .af { color: black; }
-.edit { background: pink; }
+.edit { background: #ffb5b3; }
 .selected {
     color: black;
     background: #e0ecff;

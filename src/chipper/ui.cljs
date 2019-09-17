@@ -70,6 +70,7 @@
                :class (str (name (if attr-active?
                                    (or mode :active-attr)
                                    :attr))
+                           ; (when (nil? note--) " empty")
                            (when (= note-- :off)  " bright-text")
                            (when (= note-- :stop) " stopline"))}
         s])])) ; <-- it's part of the span

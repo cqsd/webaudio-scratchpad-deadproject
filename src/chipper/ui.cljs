@@ -1,11 +1,12 @@
 (ns chipper.ui
   (:require [chipper.constants :as const]
-            [chipper.state.player :as player]
             [chipper.state.commands :as cmd]
+            [chipper.state.player :as player]
+            [chipper.state.primitives :as p]
             [chipper.state.save-load :as save-load]
             [chipper.notes :as n]
             [chipper.utils :as u]
-            [clojure.string :refer [split]]
+            [clojure.string :as s]
             [goog.string :as gs]
             [goog.string.format]
             [reagent.core :as r]))
@@ -22,35 +23,42 @@
             (gs/format " %-11s" (name instrument))))])
 
 (defn mode-indicator [mode]
-  [:span {:class (when-not (= :normal mode) "bright-text")}
-   (str " " (name mode))])
+  [:span#modeline-mode-indicator
+   {:class (when-not (= :normal mode) "bright-text")}
+   (name mode)])
 
 (defn modeline-left [mode state]
-  (case mode
-    ; TODO this regex split then join thing is a ui bug;
-    ; one leading space and one terminal space will always get cut off
-    ; by the split, so eg, you'd type
-    ; `command `
-    ; but only see
-    ; `command`
-    ; you wouldn't see the space until `command  ` is in the buffer
-    :command (let [[command & _] (split (:command-buffer @state) #" " 2)
-                   arg (subs (:command-buffer @state) (count command))]
-               [:span#modeline-left
-                [mode-indicator mode]
-                [:span#command
-                 {:class (when (cmd/is-valid-command? command)
-                           "bright-text")}
-                 (str " " command)]
-                [:span#arg arg]
-                [:span#command-cursor "|"]])
-    :info    (let [text (str " " (:info-buffer @state))]
-               [:span#modeline-left
-                [mode-indicator mode]
-                text])
-    (let [text (str " bpm" (:bpm @state)
-                    " octave" (:octave @state))]
-      [:span#modeline-left [mode-indicator mode] text])))
+  [:span#modeline-left
+   [mode-indicator mode]
+   ; TODO: do we actually need each of these to be in a span? I feel like it
+   ; shouldn't be necessary, but idk...
+   (case mode
+     :command
+     (let [[command & _] (s/split (:command-buffer @state) #" " 2)
+           ; can't just use the argstring directly off the split because you'll
+           ; lose the first leading/trailing space
+           argstring (subs (:command-buffer @state) (count command))]
+       [:span [:span#command {:class (when (cmd/is-valid-command? command)
+                                       "bright-text")}
+               command]
+        [:span#argstring argstring]
+        [:span#command-cursor "|"]])
+
+     :info
+     [:span (:info-buffer @state)]
+
+     :edit
+     [:span (s/join "-" (p/cursor-position state))]
+
+     :visual
+     [:span
+      (s/join "-" (:visual-mode-starting-coordinates @state))
+      " to "
+      (s/join "-" (p/cursor-position state))]
+
+     :normal
+     [:span (s/join " " ["bpm"    (:bpm @state)
+                         "octave" (:octave @state)])])])
 
 (defn modeline-right [mode state]
   (when (not (= :command mode))

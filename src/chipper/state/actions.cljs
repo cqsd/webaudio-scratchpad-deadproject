@@ -4,8 +4,7 @@
   (:require [chipper.keyboard :as k]
             [chipper.state.player :as player]
             [chipper.state.primitives :as p]
-            [chipper.state.commands :as cmd]
-            [chipper.utils :as utils]))
+            [chipper.state.commands :as cmd]))
 
 (defn play-pause! [_ state] ; uh oh
   (player/play-track state))
@@ -32,6 +31,7 @@
    :bpm p/set-relative-bpm!
    :play-pause play-pause!
    :command cmd/handle-command!
+   :visual p/init-visual-mode!
    ;; hm
    :macro macro!})
 
@@ -79,16 +79,8 @@
                 ;; .-code is nil if not a keypress
                 (.-code ev))))
 
-(defn handle-command-buffer!
-  "input a character to the command buffer, provided it's a printable one"
-  [ev state]
-  (let [buf   (:command-buffer @state)
-        input (.-key ev)]
-  (when (utils/is-printable? input)
-    (p/set-command-buffer! (str buf input) state))))
-
 (def custom-handlers
-  {:command-buffer handle-command-buffer!})
+  {:command-buffer cmd/handle-command-buffer!})
 
 (defn handle-custom! [kind ev state]
   (when-let [handler (custom-handlers kind)]

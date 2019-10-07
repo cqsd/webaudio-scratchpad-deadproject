@@ -15,7 +15,7 @@
 ; available custom handlers are
 ; :command-buffer edit the command buffer
 
-(def normal-keymap
+(def motion-keymap
   {:KeyJ              [:motion :down-line]
    :KeyK              [:motion :up-line]
    :KeyH              [:motion :left-line]
@@ -41,10 +41,13 @@
    :ShiftKeyG         [:motion :end]
    :KeyG              [:motion :beginning]
    :ShiftDigit4       [:motion :line-end]
-   :Digit0            [:motion :line-beginning]
+   :Digit0            [:motion :line-beginning]})
 
-   :KeyI              [:mode :edit]
-   :KeyV              [:mode :visual]
+(def normal-keymap-
+  {:KeyI              [:mode :edit]
+   ;; visual handler defined in actions atm, init just stores the current cursor
+   ;; position in state's :visual-mode-starting-coordinates
+   :KeyV              [:macro [[:mode :visual] [:visual :init]]]
    :ShiftSemicolon    [:mode :command]
 
    :KeyO              [:macro [[:mode :edit] [:motion :down-line]]]
@@ -60,6 +63,8 @@
    :Equal             [:octave :up-one]
 
    :Space             [:play-pause]})
+
+(def normal-keymap (merge motion-keymap normal-keymap-))
 
 (def edit-keymap
   {:KeyA       [:macro [[:attr  0] [:motion :down-line]]]
@@ -109,13 +114,14 @@
 
    :Escape     [:mode :normal]})
 
-(def visual-keymap
-  {:Escape [:mode :normal]})
+(def visual-keymap-
+  {:ShiftSemicolon [:mode :command]
+   :Escape         [:mode :normal]})
+
+(def visual-keymap (merge motion-keymap visual-keymap-))
 
 (def command-keymap
-  {; XXX :Escape here is a custom mode editor, sets to normal mode but also pushes
-   ; the current buffer into history whether it was run or not
-   :Escape     [:command :exit]
+  {:Escape     [:macro [[:command :clear-buffer] [:mode :normal]]]
    :Enter      [:command :run]
    :Backspace  [:command :backspace]
    :ArrowUp    [:command :history-older]
@@ -131,5 +137,4 @@
    ; info mode is solely for internal use, and is used to log messages to the user
    ; switch to it with chipper.primitives/show-info!
    :info    {:custom [:info-mode]
-             :Escape [:mode :normal]}
-   })
+             :Escape [:mode :normal]}})

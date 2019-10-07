@@ -44,6 +44,7 @@
     :active-line 0
     :active-chan 0
     :active-attr 0
+    :visual-mode-starting-coordinates nil
     :view-start 0
     :view-end  const/view-size
     :view-size const/view-size
@@ -186,11 +187,13 @@
   (swap! state update-in [:slices line chan]
          #(assoc % attr value)))
 
-(defn set-octave! [octave state]
-  (swap! state assoc :octave octave))
+(defn set-octave! [octave- state]
+  (let [octave (max 1 octave-)]
+    (swap! state assoc :octave octave)))
 
-(defn set-bpm! [bpm state]
-  (swap! state assoc :bpm bpm))
+(defn set-bpm! [bpm- state]
+  (let [bpm (max 1 bpm-)]
+    (swap! state assoc :bpm bpm)))
 
 ;; canned state operations
 (defn reset-cursor! [state]
@@ -259,6 +262,12 @@
   [s state]
   (set-mode! :info state)
   (swap! state assoc :info-buffer s))
+
+(defn init-visual-mode!
+  [_ state]
+  (swap! state
+         assoc :visual-mode-starting-coordinates
+         (cursor-position state)))
 
 (defn nonempty-frames [state]
   (keep-indexed

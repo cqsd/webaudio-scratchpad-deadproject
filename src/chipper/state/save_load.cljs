@@ -1,3 +1,5 @@
+;; TODO it looks like the concept of "frames" has been totally removed,
+;; so we can rename everything from "frames" to "slices"
 (ns chipper.state.save-load
   (:require [clojure.string :refer [split-lines]]
             [chipper.state.audio :refer [create-audio-context]]
@@ -42,6 +44,8 @@
    - note is 0-11 inclusive; o for :off, s for :stop
    - octave is 0-9 inclusiv
    - gain is 0-9 inclusive"
+  ;; the docstring seems outdated, it looks to me like this is just putting
+  ;; one slice on each line as intended. I think this will be fine to use...
   [slices]
   (apply str (interpose "\n" (map serialize-slice slices))))
 

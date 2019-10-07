@@ -1,5 +1,20 @@
 (ns chipper.keyboard)
 
+; available normal action types are
+; :motion     move the cursor
+; :mode       change the mode
+; :bpm        set the bpm
+; :octave     set the octave
+; :attr       set the attr at the cursor
+; :play-pause toggle play/pause
+;
+; additionally, there are two meta action types
+; :macro  do multiple other actions
+; :custom handle the raw keyboard js event with a totally custom handler
+;
+; available custom handlers are
+; :command-buffer edit the command buffer
+
 (def normal-keymap
   {:KeyJ              [:motion :down-line]
    :KeyK              [:motion :up-line]
@@ -29,9 +44,11 @@
    :Digit0            [:motion :line-beginning]
 
    :KeyI              [:mode :edit]
+   :KeyV              [:mode :visual]
+   :ShiftSemicolon    [:mode :command]
+
    :KeyO              [:macro [[:mode :edit] [:motion :down-line]]]
    :ShiftKeyO         [:macro [[:mode :edit] [:motion :up-line]]]
-   :KeyV              [:mode :visual]
 
    :KeyX              [:macro [[:attr nil] [:motion :down-line]]]
    :ShiftKeyX         [:macro [[:motion :up-line] [:attr nil]]]
@@ -95,7 +112,24 @@
 (def visual-keymap
   {:Escape [:mode :normal]})
 
+(def command-keymap
+  {; XXX :Escape here is a custom mode editor, sets to normal mode but also pushes
+   ; the current buffer into history whether it was run or not
+   :Escape     [:command :exit]
+   :Enter      [:command :run]
+   :Backspace  [:command :backspace]
+   :ArrowUp    [:command :history-older]
+   :ArrowDown  [:command :history-newer]
+
+   :custom     [:command-buffer]})
+
 (def mode-keymaps
-  {:normal normal-keymap
-   :edit   edit-keymap
-   :visual visual-keymap})
+  {:normal  normal-keymap
+   :edit    edit-keymap
+   :visual  visual-keymap
+   :command command-keymap
+   ; info mode is solely for internal use, and is used to log messages to the user
+   ; switch to it with chipper.primitives/show-info!
+   :info    {:custom [:info-mode]
+             :Escape [:mode :normal]}
+   })

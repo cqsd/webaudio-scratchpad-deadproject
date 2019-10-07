@@ -45,8 +45,8 @@
     :active-chan 0
     :active-attr 0
     :view-start 0
-    :view-end   const/view-size
-    :view-size  const/view-size
+    :view-end  const/view-size
+    :view-size const/view-size
     ; :active-frame 0
     :frame-edited nil
     ;; TL new
@@ -57,6 +57,8 @@
     :octave 4
     :bpm 100
     :mode :normal
+    :command-history []
+    :command-buffer ""
     :player {:audio-context (create-audio-context)
              :chip nil
              :track-chan nil
@@ -244,6 +246,19 @@
   (set-bpm!
    (+ (:bpm @state) (const/-garbage direction))
    state))
+
+(defn set-command-buffer!
+  [s state]
+  (swap! state assoc :command-buffer s))
+
+(defn set-command-history-index!
+  [n state]
+  (swap! state assoc :command-history-index n))
+
+(defn show-info!
+  [s state]
+  (set-mode! :info state)
+  (swap! state assoc :info-buffer s))
 
 (defn nonempty-frames [state]
   (keep-indexed

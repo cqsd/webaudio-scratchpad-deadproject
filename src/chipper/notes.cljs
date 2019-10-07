@@ -108,7 +108,7 @@
    Reference: http://www.phy.mtu.edu/~suits/NoteFreqCalcs.html"}
 
   [note octave]
-  (let [fundamental       9 ; see -name-rel-c
+  (let [fundamental       4 ; see -name-rel-c
         base-octave-freqs (frequencies-for-fundamental fundamental :werckmeister)
         steps-from-tonic  (- note fundamental)
         octave-multiplier (js/Math.pow 2

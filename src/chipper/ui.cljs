@@ -1,9 +1,11 @@
 (ns chipper.ui
   (:require [chipper.constants :as const]
             [chipper.state.player :as player]
+            [chipper.state.commands :as cmd]
             [chipper.state.save-load :as save-load]
             [chipper.notes :as n]
             [chipper.utils :as u]
+            [clojure.string :refer [split]]
             [goog.string :as gs]
             [goog.string.format]
             [reagent.core :as r]))
@@ -19,29 +21,62 @@
           (for [instrument scheme]
             (gs/format " %-11s" (name instrument))))])
 
-(defn edit-mode [mode]
-  [:span {:class (when (= :edit mode) "bright-text")}
+(defn mode-indicator [mode]
+  [:span {:class (when-not (= :normal mode) "bright-text")}
    (str " " (name mode))])
 
-(defn modeline [left state]
-  [:pre#modeline.flex-spread
-   [:span#modeline-left [edit-mode (:mode @state)] left]
-   [:span#modeline-right
-    [:label {:class :button :for :file} "load"]
-    " "
-    [:span {:id :save
-            :class (str "button"
-                        (when (:frame-edited @state) " bright-text"))
-            ;; TODO FIXME don't call save directly, make an action for it
-            :on-click #(save-load/save! state)}
-     "save"]
-    " "
-    [:span {:id :play
-            :class (str "button"
-                        (when (:track-chan (:player @state))
-                          " bright-text"))
-            :on-click #(player/play-track state)}
-     (if (:track-chan (:player @state)) "pause" "play")] " "]])
+(defn modeline-left [mode state]
+  (case mode
+    ; TODO this regex split then join thing is a ui bug;
+    ; one leading space and one terminal space will always get cut off
+    ; by the split, so eg, you'd type
+    ; `command `
+    ; but only see
+    ; `command`
+    ; you wouldn't see the space until `command  ` is in the buffer
+    :command (let [[command & _] (split (:command-buffer @state) #" " 2)
+                   arg (subs (:command-buffer @state) (count command))]
+               [:span#modeline-left
+                [mode-indicator mode]
+                [:span#command
+                 {:class (when (cmd/is-valid-command? command)
+                           "bright-text")}
+                 (str " " command)]
+                [:span#arg arg]
+                [:span#command-cursor "|"]])
+    :info    (let [text (str " " (:info-buffer @state))]
+               [:span#modeline-left
+                [mode-indicator mode]
+                text])
+    (let [text (str " bpm" (:bpm @state)
+                    " octave" (:octave @state))]
+      [:span#modeline-left [mode-indicator mode] text])))
+
+(defn modeline-right [mode state]
+  (when (not (= :command mode))
+    [:span#modeline-right
+     [:label {:class :button :for :file} "load"]
+     " "
+     [:span {:id :save
+             :class (str "button"
+                         (when (:frame-edited @state) " bright-text"))
+             ;; TODO FIXME don't call save directly, make an action for it
+             :on-click #(save-load/save! state)}
+      "save"]
+     " "
+     [:span {:id :play
+             :class (str "button"
+                         (when (:track-chan (:player @state))
+                           " bright-text"))
+             :on-click #(player/play-track state)}
+      (if (:track-chan (:player @state)) "pause" "play")] " "]))
+
+(defn modeline [state]
+  (let [mode (:mode @state)]
+    (prn mode)
+    [:pre#modeline.flex-spread
+     [modeline-left mode state]
+     [modeline-right mode state]]))
 
 (defn channel
   "One line of attributes for a single channel."
@@ -183,7 +218,4 @@
             (= line-number active-line)
             window-index  ; hax for frame; it's the index of the line in the "window"
             state]))]
-      [modeline
-       (str " bpm" (:bpm @state)
-            " octave" (:octave @state))
-       state]]]))
+      [modeline state]]]))

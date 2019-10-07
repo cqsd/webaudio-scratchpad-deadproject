@@ -1,5 +1,6 @@
 (ns chipper.utils
-  (:require [cljs.core.async :refer [<! >! chan close! timeout]])
+  (:require [clojure.string :as string]
+            [cljs.core.async :refer [<! >! chan close! timeout]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (defn delayed-chan
@@ -75,3 +76,9 @@
         bounded-min (max (- center radius diff-min) minimum)]
     ; (prn (str "max/min " bounded-min " " bounded-max))
     [bounded-min bounded-max]))
+
+(def printable-ascii-characters
+  (apply str (map #(char %) (range 32 128))))
+
+;; TODO
+(defn is-printable? [c] (string/includes? printable-ascii-characters c))

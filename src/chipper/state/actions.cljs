@@ -3,12 +3,14 @@
 (ns chipper.state.actions
   (:require [chipper.keyboard :as k]
             [chipper.state.player :as player]
-            [chipper.state.primitives :as s]))
+            [chipper.state.primitives :as p]
+            [chipper.state.commands :as cmd]
+            [chipper.utils :as utils]))
 
 (defn play-pause! [_ state] ; uh oh
   (player/play-track state))
 
-;; you've never seen ugly code before
+;; :/
 (declare handle-property!)
 
 (defn macro!
@@ -20,15 +22,16 @@
     (handle-property! property params state)))
 
 (def property-handlers
-  {:mode s/set-mode!
+  {:mode p/set-mode!
    ; TODO how to automatically append lines?
-   :motion s/set-relative-position!  ;; FIXME naming
-   ; :absolute-position s/set-absolute-position! ;; apparently unused
-   ; :frame s/set-relative-frame!
-   :attr s/set-attr-at-cursor!
-   :octave s/set-relative-octave!
-   :bpm s/set-relative-bpm!
+   :motion p/set-relative-position!  ;; FIXME naming
+   ; :absolute-position p/set-absolute-position! ;; apparently unused
+   ; :frame p/set-relative-frame!
+   :attr p/set-attr-at-cursor!
+   :octave p/set-relative-octave!
+   :bpm p/set-relative-bpm!
    :play-pause play-pause!
+   :command cmd/handle-command!
    ;; hm
    :macro macro!})
 
@@ -49,12 +52,14 @@
     ; which gets parsed to 'NaN by 'js/parseInt, so we must check for
     ; that case explicitly.
     ;; This indicates the user clicked in the main area.
+    ;; see ui.cljs: the 3 segments of the parsed id correspond to a given attribute's
+    ;; slice, channel, and attribute coordinates
     (when (and (== 3 (count parsed-id)) (every? number? parsed-id))
-      (s/set-cursor-position! parsed-id state))
+      (p/set-cursor-position! parsed-id state))
     (comment (when (= "f" literal-chan)  ;; This indicates the user clicked on a page.
        (swap! state assoc
               :active-frame line)
-       (s/set-frame-used?! (:active-frame @state) state)))))
+       (p/set-frame-used?! (:active-frame @state) state)))))
 
 (def -movement-keys
   #{:Space :ArrowDown :ArrowUp :ArrowLeft :ArrowRight :Tab :Backspace})
@@ -74,11 +79,35 @@
                 ;; .-code is nil if not a keypress
                 (.-code ev))))
 
+(defn handle-command-buffer!
+  "input a character to the command buffer, provided it's a printable one"
+  [ev state]
+  (let [buf   (:command-buffer @state)
+        input (.-key ev)]
+  (when (utils/is-printable? input)
+    (p/set-command-buffer! (str buf input) state))))
+
+(def custom-handlers
+  {:command-buffer handle-command-buffer!})
+
+(defn handle-custom! [kind ev state]
+  (when-let [handler (custom-handlers kind)]
+    (handler ev state)))
+
 (defn handle-keypress!
   "Translate the keycode, get the property and params out of the top level
   keymap, trigger the top level handler"
   [ev state]
   (when-let [keycode (-> ev -prevent-movement! -translate-keycode)]
     (let [mode              (:mode @state)
-          [property params] (get-in k/mode-keymaps [mode keycode])]
-      (handle-property! property params state))))
+          [property params] (get-in k/mode-keymaps
+                                    [mode keycode]
+                                    (get-in k/mode-keymaps
+                                            [mode :custom]))]
+      ;; XXX this is a hack to handle command buffer, we should pass this through
+      ;; a dispatch function somehow similar to handle-property!
+      (if (= :command-buffer property)
+        ; in the custom case, "property" is semantically more like "kind"
+        ; as in, :command-buffer [handler], :info-mode [handler]
+        (handle-custom! property ev state)
+        (handle-property! property params state)))))

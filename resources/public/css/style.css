@@ -1,7 +1,8 @@
 /* TODO scheme and button should have same height */
 html, body {
-    background: #435e5f;
-    color: #e0ecff;
+    /* background: #435e5f; */
+    background: #f8f8f8;
+    /* color: #e0ecff; */
     font-size: 11pt;
     font-family: 'Inconsolata', monospace;
     height: 100%;
@@ -56,6 +57,7 @@ pre {
 }
 /* ---------- TRACKER ---------- */
 #main-ui {
+  background: white;
     display: -webkit-flex;
     display: flex;
     -webkit-box-flex-direction: row;
@@ -70,15 +72,19 @@ pre {
 
 #tracker {
     cursor: default;
-    border: 1px solid #e0ecff;
+    /* border: 1px solid #e0ecff; */
+    border: 1px solid black;
     margin: 0 auto;
     padding: 0.2em;
 
-    border-radius: 5px;
+    /* border-radius: 5px; */
+    border-radius: 4px;
+    box-shadow: 2px 2px 2px #dde;
 }
 
 #scheme {
-    border-bottom: 1px solid #e0ecff;
+    /* border-bottom: 1px solid #e0ecff; */
+    border-bottom: 1px solid black;
     margin-top:    0.52em;
     margin-bottom: 0;
     padding-bottom:0.5em;
@@ -94,27 +100,28 @@ pre {
 }
 
 #modeline {
-    border-top:    1px solid #e0ecff;
-    margin-top:    0;
-    margin-bottom: 0.52em;
-    padding-top:   0.5em;
+  max-width: 100%;
+  /* border-top:    1px solid #e0ecff; */
+  border-top:    1px solid black;
+  margin-top:    0;
+  margin-bottom: 0.52em;
+  padding-top:   0.5em;
+  /* overflow:      wrap; please fix this, see modeline info mode thing */
 }
+
+/* Pad a space around the modeline indicator (so it's spaced from the margin,
+ * and also spaced from the rest of the information in the line besides the mode
+ *
+ * This might not be a good idea...
+ */
+#modeline-mode-indicator:first-child:after { content: " "; }
+#modeline-mode-indicator:first-child:before { content: " "; }
 
 .flex-spread {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
 }
-
-/*
-.tempo-input input {
-    -webkit-appearance: none;
-    -moz-appearance:    none;
-    -ms-appearance:     none;
-    -o-appearance:      none;
-    appearance:         none;
-}
-*/
 
 .attr:hover {
     color: black;
@@ -127,7 +134,7 @@ pre {
 .bright-text,
 .beat-marker,
 .measure-marker {
-  color: #f4bf42;
+  color: #d49f22;
 }
 /* .empty { color: #dadbdc; } */
 .measure-marker { background: #ffffff; }

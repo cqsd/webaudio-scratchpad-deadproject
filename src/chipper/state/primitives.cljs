@@ -1,3 +1,4 @@
+;; TODO the simple set-${ATTRIBUTE} functions oughta just be a single function
 ;; TODO this might actually merit another subdirectory, because the audio.cljs
 ;; file is all "primitives" too. Or maybe we should refine what primitive means
 ;; I don't like that primitives is importing from state lmfao but this is a pretty
@@ -63,10 +64,9 @@
     :player {:audio-context (create-audio-context)
              :chip nil
              :track-chan nil
-             ;; XXX hax. when a note is entered, its whole slice is pushed to
-             ;; `preview-chan` and is immediately consumed/played by `preview-chip`
-             ;; i guess we'll fix this when we rip it into a state machine, ...
-             ;; pls gib nrg to actually make these changes
+             ;; when a note is entered, its whole slice is pushed to
+             ;; `preview-chan` and immediately consumed by `preview-chip`.
+             ;; pls gib nrg to implement the player fr
              :preview-chip nil
              :preview-chan (async/chan 2)
              :scheme [:square :square :sawtooth :sawtooth]}}))
@@ -234,6 +234,7 @@
                   [value- (:octave @state)]
                   [value- nil nil])
                 value-)]
+    ; XXX :off and :stop getting set in dynamic/effects positions lol
     (set-attr! position value state)
     (when playable
       (push-slice-at-position state (:player @state) position))))
@@ -262,12 +263,6 @@
   [s state]
   (set-mode! :info state)
   (swap! state assoc :info-buffer s))
-
-(defn init-visual-mode!
-  [_ state]
-  (swap! state
-         assoc :visual-mode-starting-coordinates
-         (cursor-position state)))
 
 (defn nonempty-frames [state]
   (keep-indexed

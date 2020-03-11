@@ -45,33 +45,42 @@
 ;; or nil, string meaning show this string as info, nil meaning go to normal
 (defn save-cmd! [state _]
   (save-load/save! state)
-  (p/show-info! "saving complete" state))
+  "saving complete")
 
 (defn bpm-cmd! [state [bpm- & _]]
+  (prn bpm-)
   (let [bpm (js/parseInt bpm-)]
     ;; this is mostly just to get rid of NaN case, set-bpm has its own guard
     ;; against non-positive bpm
+    (prn bpm)
     (when (pos? bpm)
       (p/set-bpm! bpm state))
     (p/set-mode! :normal state)))
 
 (defn basefreq-cmd! [state [frequency & _]])
 
+(defn transpose-cmd! [state args])
+
+(defn manual-cmd! [state args])
+
 ;; I think it might be better to open the manual page when this is typed?
-(defn help-cmd! [state command-name]
-  (p/show-info! (s/join "|" (map name (keys runnable-commands))) state))
+(defn help-cmd! [state [command-name & _]]
+  (if-let [cmd (get runnable-commands (keyword command-name))]
+    (str command-name " " (:help cmd))
+    (s/join "|" (map name (keys runnable-commands)))))
 
 (def runnable-commands
-  {:save     save-cmd!
-   :bpm      bpm-cmd!
-   :basefreq basefreq-cmd!
-   :help     help-cmd!})
+  {:save      {:handler save-cmd!      :help "save the track"}
+   :bpm       {:handler bpm-cmd!       :help "n: set bpm to n"}
+   :transpose {:handler transpose-cmd! :help "n: transpose the selection (in visual mode) or the whole track by n semitones (positive or negative)"}
+   :manual    {:handler manual-cmd!    :help "open the manual"}
+   :help      {:handler help-cmd!      :help "[cmd]: show help for a cmd"}})
 
 ;; This referes to keyboard events for command mode; it's a custom property handler
 ;; for the :command property (see keyboards.cljs, command mode mappings)
 ;; The :run handler in this map is what dispatches actual commands from the command
 ;; buffer
-;; This is a first take at this written on a train, refactor is a TODO
+;; TODO XXX FIXME for the love of god please refactor this
 (def command-handlers
   {; note that these write/open things don't take args like normal vim
    :run           (fn [state]
@@ -81,9 +90,13 @@
                         ; convert to command as a keyword to get from the internal
                         ; mapping
                         (if-let [command (get runnable-commands (keyword command-))]
-                          (command state args)
+                          (if-let [output ((:handler command) state args)]
+                            (p/show-info! output state)
+                            (p/set-mode! :normal state))
                           (do (push-history-and-clear-buffer! state)
-                              (p/set-mode! :normal state))))))
+                              (p/show-info!
+                                (str command- ": command not found")
+                                state))))))
 
    :clear-buffer  (fn [state]
                     (p/set-command-buffer! "" state)
@@ -133,7 +146,6 @@
 (defn handle-command!
   [action state]
   ;; note: this is one level simpler than property-handlers
-  (prn action)
   (when-let [handler (command-handlers action)]
     (handler state)))
 

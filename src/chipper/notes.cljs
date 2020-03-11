@@ -61,7 +61,6 @@
 (def twelfth-root-of-2 (js/Math.pow 2 (/ 1 12)))
 
 (defn frequency-
-  {:doc
    "Calculate the frequency of a note given the note name, octave number,
    and frequency of A4.
 
@@ -73,8 +72,7 @@
    - octave - octave number (default 4)
    - base - base frequency of A4 (default 440)
 
-   Reference: http://www.phy.mtu.edu/~suits/NoteFreqCalcs.html"}
-
+   Reference: http://www.phy.mtu.edu/~suits/NoteFreqCalcs.html"
   [note octave]
   (let [freq-of-a4    440
         steps-from-c4 (+ (* (- octave 4) 12)
@@ -93,7 +91,6 @@
 (def frequencies-for-fundamental (memoize frequencies-for-fundamental-))
 
 (defn frequency-custom-temperament-
-  {:doc
    "Calculate the frequency of a note given the note name, octave number,
    and frequency of A4.
 
@@ -105,8 +102,7 @@
    - octave - octave number (default 4)
    - base - base frequency of A4 (default 440)
 
-   Reference: http://www.phy.mtu.edu/~suits/NoteFreqCalcs.html"}
-
+   Reference: http://www.phy.mtu.edu/~suits/NoteFreqCalcs.html"
   [note octave]
   (let [fundamental       4 ; see -name-rel-c
         base-octave-freqs (frequencies-for-fundamental fundamental :werckmeister)

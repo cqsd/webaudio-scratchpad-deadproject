@@ -1,3 +1,4 @@
+; TODO XXX FIXME for the love of god please refactor this into smaller files
 (ns chipper.ui
   (:require [chipper.constants :as const]
             [chipper.state.commands :as cmd]
@@ -27,6 +28,12 @@
    {:class (when-not (= :normal mode) "bright-text")}
    (name mode)])
 
+(defn modeline-meta-default [state]
+  [:span#modeline-meta
+   (str (s/join "-" (p/cursor-position state))
+        " octave" (:octave @state)
+        " bpm"  (:bpm @state))])
+
 (defn modeline-left [mode state]
   [:span#modeline-left
    [mode-indicator mode]
@@ -45,10 +52,13 @@
         [:span#command-cursor "|"]])
 
      :info
-     [:span (:info-buffer @state)]
-
-     :edit
-     [:span (s/join "-" (p/cursor-position state))]
+     [:span (s/join "\n      " ;; XXX TODO FIXME THIS IS TO LEFT PAD THE LINE BREAKS
+                               ;; PLEEEASE FIX THIS
+                               ;; THIS MAGIC 45 IS THE FREE SPACE OF THE
+                               ;; DEFAULT MODELINE PLEEEEEEEEAAAASE
+                               ;; this re-seq thing is just to get line breaks oh god
+                               ;; can you please just do this in CSS lmfao
+                    (re-seq #".{1,45}" (:info-buffer @state)))]
 
      :visual
      [:span
@@ -56,12 +66,11 @@
       " to "
       (s/join "-" (p/cursor-position state))]
 
-     :normal
-     [:span (s/join " " ["bpm"    (:bpm @state)
-                         "octave" (:octave @state)])])])
+     (:normal :edit)
+     [modeline-meta-default state])])
 
 (defn modeline-right [mode state]
-  (when (not (= :command mode))
+  (when-not (or (= :command mode) (= :info mode))
     [:span#modeline-right
      [:label {:class :button :for :file} "load"]
      " "
@@ -81,7 +90,6 @@
 
 (defn modeline [state]
   (let [mode (:mode @state)]
-    (prn mode)
     [:pre#modeline.flex-spread
      [modeline-left mode state]
      [modeline-right mode state]]))

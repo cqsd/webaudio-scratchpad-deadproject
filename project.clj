@@ -1,5 +1,5 @@
 (defproject chipper "0.1.1"
-  :description "In-browser chiptune-ish tracker."
+  :description "Vaguely vi-like in-browser chiptune-ish tracker."
   :url "http://github.com/cqsd/chipper"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}

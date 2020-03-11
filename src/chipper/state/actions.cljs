@@ -4,6 +4,7 @@
   (:require [chipper.keyboard :as k]
             [chipper.state.player :as player]
             [chipper.state.primitives :as p]
+            [chipper.state.visual :as visual]
             [chipper.state.commands :as cmd]))
 
 (defn play-pause! [_ state] ; uh oh
@@ -31,7 +32,7 @@
    :bpm p/set-relative-bpm!
    :play-pause play-pause!
    :command cmd/handle-command!
-   :visual p/init-visual-mode!
+   :visual visual/handle-visual-mode-change!
    ;; hm
    :macro macro!})
 
@@ -79,8 +80,12 @@
                 ;; .-code is nil if not a keypress
                 (.-code ev))))
 
+(declare handle-info-mode!)
+
 (def custom-handlers
-  {:command-buffer cmd/handle-command-buffer!})
+  {:command-buffer cmd/handle-command-buffer!
+   ; :info-mode      handle-info-mode!
+   })
 
 (defn handle-custom! [kind ev state]
   (when-let [handler (custom-handlers kind)]
@@ -98,8 +103,15 @@
                                             [mode :custom]))]
       ;; XXX this is a hack to handle command buffer, we should pass this through
       ;; a dispatch function somehow similar to handle-property!
-      (if (= :command-buffer property)
+      (if-let [custom-handler (custom-handlers property)]
         ; in the custom case, "property" is semantically more like "kind"
         ; as in, :command-buffer [handler], :info-mode [handler]
-        (handle-custom! property ev state)
+        (custom-handler ev state)
         (handle-property! property params state)))))
+
+; XXX spaghetti
+; (defn handle-info-mode!
+;   "This is technically the same as normal mode, just it needs to first set the
+;   mode to normal"
+;   [ev state]
+;   (handle-keypress! ev state))
